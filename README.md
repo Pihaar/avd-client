@@ -88,7 +88,8 @@ Microsoft sign-in page and then asks for the full redirect URL from the browser
 address bar. The URL contains the authorization code; the client validates the
 state and exchanges the code immediately. The refresh token is stored in the
 system keyring when `python3-keyring` is available; otherwise it stays in memory
-only and each start asks for a browser login.
+only and each start asks for a browser login. Broker-enrolled devices use the
+broker's own token cache; the keyring is only used on this PKCE path.
 
 ## Configuration
 
