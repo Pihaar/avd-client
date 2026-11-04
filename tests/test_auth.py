@@ -12,11 +12,15 @@ import pytest
 from avd_client.auth import (
     AuthError,
     AuthResult,
+    _delete_refresh,
     _exchange_code,
     _id_token_username,
+    _load_refresh,
     _notify,
     _pkce_auth,
     _prompt,
+    _refresh_access_token,
+    _store_refresh,
     get_token,
 )
 from avd_client.broker import BrokerError
@@ -53,6 +57,11 @@ def _frontend_for_state(mock_open, code="abc"):
 
     frontend.prompt_url.side_effect = prompt
     return frontend
+
+
+@pytest.fixture(autouse=True)
+def _no_keyring(monkeypatch):
+    monkeypatch.setattr("avd_client.auth.keyring", None)
 
 
 class TestBrokerFirst:
@@ -306,6 +315,145 @@ class TestExchangeCode:
             with patch("avd_client.auth.urllib.request.urlopen", return_value=response):
                 with pytest.raises(AuthError, match="exceeds size limit"):
                     _exchange_code("abc", "verifier", PKCE_SCOPE)
+
+
+class TestRefreshTokenCache:
+    def _stored(self, **overrides):
+        data = {"refresh_token": "old-refresh", "username": "user@example.com"}
+        data.update(overrides)
+        return json.dumps(data)
+
+    def test_refresh_access_token_form(self):
+        with patch("avd_client.auth._post_token", return_value={"access_token": "x"}) as mock_post:
+            assert _refresh_access_token("old-refresh") == {"access_token": "x"}
+        form = mock_post.call_args[0][0]
+        assert form["grant_type"] == "refresh_token"
+        assert form["refresh_token"] == "old-refresh"
+        assert form["scope"] == PKCE_SCOPE
+
+    def test_refresh_success_skips_browser(self, monkeypatch):
+        mock_keyring = MagicMock()
+        mock_keyring.get_password.return_value = self._stored()
+        monkeypatch.setattr("avd_client.auth.keyring", mock_keyring)
+        with patch("avd_client.auth._refresh_access_token", return_value={
+            "access_token": "eyJ.test.token",
+            "refresh_token": "new-refresh",
+        }), patch("avd_client.auth.webbrowser.open") as mock_open:
+            result = _pkce_auth(MagicMock())
+
+        assert result.source == "pkce"
+        assert result.refresh_token == "new-refresh"
+        mock_open.assert_not_called()
+        stored = json.loads(mock_keyring.set_password.call_args[0][2])
+        assert stored["refresh_token"] == "new-refresh"
+        assert stored["username"] == "user@example.com"
+
+    def test_refresh_uses_id_token_username(self, monkeypatch):
+        mock_keyring = MagicMock()
+        mock_keyring.get_password.return_value = self._stored()
+        monkeypatch.setattr("avd_client.auth.keyring", mock_keyring)
+        with patch("avd_client.auth._refresh_access_token", return_value={
+            "access_token": "eyJ.test.token",
+            "id_token": _jwt({"preferred_username": "new@example.com"}),
+        }):
+            result = _pkce_auth(MagicMock())
+
+        assert result.username == "new@example.com"
+
+    def test_refresh_failure_falls_back_to_browser(self, monkeypatch):
+        mock_keyring = MagicMock()
+        mock_keyring.get_password.return_value = self._stored()
+        monkeypatch.setattr("avd_client.auth.keyring", mock_keyring)
+        with patch(
+            "avd_client.auth._refresh_access_token", side_effect=AuthError("expired")
+        ), patch("avd_client.auth._exchange_code", return_value=_token_response()), \
+             patch("avd_client.auth.webbrowser.open", return_value=True) as mock_open:
+            result = _pkce_auth(_frontend_for_state(mock_open))
+
+        assert result.source == "pkce"
+        mock_keyring.delete_password.assert_called_once()
+        mock_keyring.set_password.assert_called_once()
+
+    def test_browser_success_stores_refresh(self, monkeypatch):
+        mock_keyring = MagicMock()
+        mock_keyring.get_password.return_value = None
+        monkeypatch.setattr("avd_client.auth.keyring", mock_keyring)
+        with patch("avd_client.auth._exchange_code", return_value=_token_response()), \
+             patch("avd_client.auth.webbrowser.open", return_value=True) as mock_open:
+            result = _pkce_auth(_frontend_for_state(mock_open))
+
+        assert result.refresh_token == "refresh-token"
+        mock_keyring.set_password.assert_called_once()
+
+    def test_browser_without_refresh_token(self, monkeypatch):
+        mock_keyring = MagicMock()
+        mock_keyring.get_password.return_value = None
+        monkeypatch.setattr("avd_client.auth.keyring", mock_keyring)
+        response = _token_response()
+        del response["refresh_token"]
+        with patch("avd_client.auth._exchange_code", return_value=response), \
+             patch("avd_client.auth.webbrowser.open", return_value=True) as mock_open:
+            result = _pkce_auth(_frontend_for_state(mock_open))
+
+        assert result.refresh_token == ""
+        mock_keyring.set_password.assert_not_called()
+
+    def test_keyring_none_is_noop(self):
+        assert _load_refresh() is None
+        _store_refresh("refresh", "user@example.com")
+        _delete_refresh()
+
+    def test_keyring_read_error_falls_back_to_browser(self, monkeypatch):
+        mock_keyring = MagicMock()
+        mock_keyring.get_password.side_effect = Exception("locked")
+        monkeypatch.setattr("avd_client.auth.keyring", mock_keyring)
+        with patch("avd_client.auth._exchange_code", return_value=_token_response()), \
+             patch("avd_client.auth.webbrowser.open", return_value=True) as mock_open:
+            result = _pkce_auth(_frontend_for_state(mock_open))
+
+        assert result.source == "pkce"
+
+    def test_keyring_invalid_payload_falls_back_to_browser(self, monkeypatch):
+        mock_keyring = MagicMock()
+        mock_keyring.get_password.return_value = "not json"
+        monkeypatch.setattr("avd_client.auth.keyring", mock_keyring)
+        with patch("avd_client.auth._exchange_code", return_value=_token_response()), \
+             patch("avd_client.auth.webbrowser.open", return_value=True) as mock_open:
+            result = _pkce_auth(_frontend_for_state(mock_open))
+
+        assert result.source == "pkce"
+
+    def test_keyring_missing_refresh_falls_back_to_browser(self, monkeypatch):
+        mock_keyring = MagicMock()
+        mock_keyring.get_password.return_value = json.dumps({"username": "user@example.com"})
+        monkeypatch.setattr("avd_client.auth.keyring", mock_keyring)
+        with patch("avd_client.auth._exchange_code", return_value=_token_response()), \
+             patch("avd_client.auth.webbrowser.open", return_value=True) as mock_open:
+            result = _pkce_auth(_frontend_for_state(mock_open))
+
+        assert result.source == "pkce"
+
+    def test_keyring_invalid_username_falls_back_to_browser(self, monkeypatch):
+        mock_keyring = MagicMock()
+        mock_keyring.get_password.return_value = self._stored(username="")
+        monkeypatch.setattr("avd_client.auth.keyring", mock_keyring)
+        with patch("avd_client.auth._exchange_code", return_value=_token_response()), \
+             patch("avd_client.auth.webbrowser.open", return_value=True) as mock_open:
+            result = _pkce_auth(_frontend_for_state(mock_open))
+
+        assert result.source == "pkce"
+
+    def test_keyring_write_error_is_ignored(self, monkeypatch):
+        mock_keyring = MagicMock()
+        mock_keyring.set_password.side_effect = Exception("locked")
+        monkeypatch.setattr("avd_client.auth.keyring", mock_keyring)
+        _store_refresh("refresh", "user@example.com")
+
+    def test_keyring_delete_error_is_ignored(self, monkeypatch):
+        mock_keyring = MagicMock()
+        mock_keyring.delete_password.side_effect = Exception("locked")
+        monkeypatch.setattr("avd_client.auth.keyring", mock_keyring)
+        _delete_refresh()
 
 
 class TestValidatePkceRedirect:

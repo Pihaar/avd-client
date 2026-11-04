@@ -37,7 +37,7 @@
 | SEC-236 Info Disclosure | Token redaction filter on all loggers + sys.excepthook; error messages truncated to 200 chars |
 | SEC-239 Fail Securely | All error paths exit with defined codes (2=auth, 3=feed, 4=launcher, 5=security) |
 | SEC-278 URL Handling | Feed URLs validated against domain allowlist; no redirect following |
-| SEC-309 Secret Management | Token not persisted to disk; callback file mode 0600; atomic writes |
+| SEC-309 Secret Management | Access token not persisted; PKCE refresh token in the OS keyring when available; callback file mode 0600; atomic writes |
 | SEC-375 SSRF Protection | No redirect handler in urllib opener; hostname allowlist on all fetched URLs |
 
 ## Broker-free PKCE Authentication
@@ -48,10 +48,12 @@ PKCE (S256). The flow opens the Microsoft sign-in page, validates the returned
 `https://login.microsoftonline.com/common/oauth2/nativeclient`; `security.py`
 parses the code and state without echoing either value.
 
-The access token and refresh token are kept in memory only and are never
-persisted. The ID token is parsed for the UPN without signature verification
-because it is read directly from the TLS token endpoint and is used only as the
-FreeRDP username hint. SEC-309 (no token persistence) applies unchanged.
+The access token is kept in memory only and is never persisted. The refresh
+token is written to the OS keyring (Secret Service) when `python3-keyring` is
+available; it is never written to a plain file. Without a keyring, the refresh
+token stays in memory only. The ID token is parsed for the UPN without signature
+verification because it is read directly from the TLS token endpoint and is used
+only as the FreeRDP username hint.
 
 ## Incident Response
 

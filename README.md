@@ -17,6 +17,7 @@ Native Linux client for Azure Virtual Desktop (AVD). Connects to SAP AVD desktop
 - FreeRDP >= 3.5.0 (with `WITH_AAD=ON`)
 - Python >= 3.9
 - `dbus-python` >= 1.2
+- Optional: `python3-keyring` for persistent refresh tokens on private devices
 
 ## Installation
 
@@ -85,7 +86,9 @@ Intune, the client falls back to an OAuth2 authorization-code flow with PKCE.
 If the broker is unavailable or no account is enrolled, `avd-client` opens the
 Microsoft sign-in page and then asks for the full redirect URL from the browser
 address bar. The URL contains the authorization code; the client validates the
-state and exchanges the code immediately. The refresh token stays in memory only.
+state and exchanges the code immediately. The refresh token is stored in the
+system keyring when `python3-keyring` is available; otherwise it stays in memory
+only and each start asks for a browser login.
 
 ## Configuration
 

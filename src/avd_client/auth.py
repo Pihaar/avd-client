@@ -30,7 +30,15 @@ from .security import (
     validate_upn,
 )
 
+try:
+    import keyring
+except ImportError:
+    keyring = None
+
 log = logging.getLogger(__name__)
+
+_KEYRING_SERVICE = "avd-client"
+_KEYRING_ACCOUNT = "pkce-refresh"
 
 
 class AuthError(Exception):
@@ -107,15 +115,51 @@ def _id_token_username(id_token: str) -> str:
         raise AuthError("ID token has no valid username") from e
 
 
-def _exchange_code(code: str, verifier: str, scope: str) -> dict:
-    data = urllib.parse.urlencode({
-        "client_id": RDP_CLIENT_ID,
-        "grant_type": "authorization_code",
-        "code": code,
-        "redirect_uri": RDP_REDIRECT_URI,
-        "code_verifier": verifier,
-        "scope": scope,
-    }).encode("utf-8")
+def _load_refresh():
+    if keyring is None:
+        return None
+    try:
+        raw = keyring.get_password(_KEYRING_SERVICE, _KEYRING_ACCOUNT)
+    except Exception:
+        log.debug("Keyring read failed")
+        return None
+    if not raw:
+        return None
+    try:
+        data = json.loads(raw)
+        username = validate_upn(data.get("username", ""))
+        refresh_token = data.get("refresh_token", "")
+    except (ValueError, TypeError, SecurityError, AttributeError):
+        return None
+    if not refresh_token:
+        return None
+    return {"refresh_token": refresh_token, "username": username}
+
+
+def _store_refresh(refresh_token: str, username: str) -> None:
+    if keyring is None or not refresh_token:
+        return
+    try:
+        keyring.set_password(
+            _KEYRING_SERVICE,
+            _KEYRING_ACCOUNT,
+            json.dumps({"refresh_token": refresh_token, "username": username}),
+        )
+    except Exception:
+        log.debug("Keyring write failed")
+
+
+def _delete_refresh() -> None:
+    if keyring is None:
+        return
+    try:
+        keyring.delete_password(_KEYRING_SERVICE, _KEYRING_ACCOUNT)
+    except Exception:
+        pass
+
+
+def _post_token(form: dict) -> dict:
+    data = urllib.parse.urlencode(form).encode("utf-8")
     request = urllib.request.Request(
         PKCE_TOKEN_URL,
         data=data,
@@ -146,7 +190,46 @@ def _exchange_code(code: str, verifier: str, scope: str) -> dict:
         raise AuthError(f"Token exchange failed: {e}") from e
 
 
+def _exchange_code(code: str, verifier: str, scope: str) -> dict:
+    return _post_token({
+        "client_id": RDP_CLIENT_ID,
+        "grant_type": "authorization_code",
+        "code": code,
+        "redirect_uri": RDP_REDIRECT_URI,
+        "code_verifier": verifier,
+        "scope": scope,
+    })
+
+
+def _refresh_access_token(refresh_token: str) -> dict:
+    return _post_token({
+        "client_id": RDP_CLIENT_ID,
+        "grant_type": "refresh_token",
+        "refresh_token": refresh_token,
+        "scope": PKCE_SCOPE,
+    })
+
+
 def _pkce_auth(frontend) -> AuthResult:
+    stored = _load_refresh()
+    if stored:
+        try:
+            payload = _refresh_access_token(stored["refresh_token"])
+            token = validate_token_shape(payload.get("access_token", ""))
+            id_token = payload.get("id_token", "")
+            username = _id_token_username(id_token) if id_token else stored["username"]
+            refresh_token = payload.get("refresh_token", stored["refresh_token"])
+            _store_refresh(refresh_token, username)
+            return AuthResult(
+                token=token,
+                username=username,
+                source="pkce",
+                refresh_token=refresh_token,
+            )
+        except (AuthError, SecurityError) as e:
+            log.info("Stored refresh token failed, starting browser login: %s", e)
+            _delete_refresh()
+
     verifier = secrets.token_urlsafe(64)
     state = secrets.token_urlsafe(32)
     params = {
@@ -180,11 +263,14 @@ def _pkce_auth(frontend) -> AuthResult:
         username = _id_token_username(payload.get("id_token", ""))
     except SecurityError as e:
         raise AuthError(str(e)) from e
+    refresh_token = payload.get("refresh_token", "")
+    if refresh_token:
+        _store_refresh(refresh_token, username)
     return AuthResult(
         token=token,
         username=username,
         source="pkce",
-        refresh_token=payload.get("refresh_token", ""),
+        refresh_token=refresh_token,
     )
 
 
