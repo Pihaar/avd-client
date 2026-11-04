@@ -5,7 +5,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from avd_client.launcher import _browser_candidates, _headless_auth, _safe_url
+from avd_client.launcher import (
+    _browser_candidates,
+    _continue_with_prt,
+    _headless_auth,
+    _safe_url,
+)
 
 URL = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize?x=1"
 REDIRECT = "ms-appx-web://microsoft.aad.brokerplugin/test?code=abc&state=xyz"
@@ -80,9 +85,16 @@ class TestHeadlessAuth:
         options = browser.new_context.call_args.kwargs
         assert "HeadlessChrome" not in options["user_agent"]
         assert "Chrome/131.0.0.0" in options["user_agent"]
-        cookie = browser.new_context.return_value.add_cookies.call_args.args[0][0]
-        assert cookie["httpOnly"] is True
-        assert cookie["sameSite"] == "None"
+        context = browser.new_context.return_value
+        pattern, handler = context.route.call_args.args
+        assert pattern == "https://login.microsoftonline.com/**"
+        route = MagicMock()
+        route.request.headers = {"accept": "text/html"}
+        handler(route)
+        assert route.continue_.call_args.kwargs["headers"] == {
+            "accept": "text/html",
+            "n": "c",
+        }
 
     @patch("avd_client.launcher.get_prt_cookie",
            return_value={"cookieName": "n", "cookieContent": "c"})
@@ -211,3 +223,20 @@ class TestHeadlessAuth:
 def test_safe_url_strips_query_and_fragment():
     assert _safe_url("https://x.example/p?code=1#f") == "https://x.example/p"
     assert _safe_url("about:blank") == "about:blank"
+
+
+def test_continue_with_prt_falls_back_without_headers():
+    route = MagicMock()
+    route.request.headers = {"accept": "text/html"}
+    route.continue_.side_effect = [RuntimeError("closed"), None]
+    _continue_with_prt(route, "n", "c")
+    assert route.continue_.call_count == 2
+    route.continue_.assert_called_with()
+
+
+def test_continue_with_prt_swallows_errors():
+    route = MagicMock()
+    route.request.headers = {}
+    route.continue_.side_effect = RuntimeError("closed")
+    _continue_with_prt(route, "n", "c")
+    assert route.continue_.call_count == 2

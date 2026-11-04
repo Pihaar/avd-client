@@ -122,6 +122,19 @@ def _aad_error_code(page) -> str:
     return match.group(0) if match else ""
 
 
+def _continue_with_prt(route, name: str, value: str) -> None:
+    """Inject the PRT SSO cookie as a request header (ms-oapxbc extension)."""
+    try:
+        headers = dict(route.request.headers)
+        headers[name] = value
+        route.continue_(headers=headers)
+    except Exception:
+        try:
+            route.continue_()
+        except Exception:
+            pass
+
+
 def _headless_auth(auth_url: str) -> str:
     """Try the session-host login in a headless browser with a PRT SSO cookie."""
     if sync_playwright is None:
@@ -147,15 +160,12 @@ def _headless_auth(auth_url: str) -> str:
                 return ""
             try:
                 context = browser.new_context(**_context_options(browser))
-                context.add_cookies([{
-                    "name": cookie["cookieName"],
-                    "value": cookie["cookieContent"],
-                    "domain": "login.microsoftonline.com",
-                    "path": "/",
-                    "secure": True,
-                    "httpOnly": True,
-                    "sameSite": "None",
-                }])
+                context.route(
+                    "https://login.microsoftonline.com/**",
+                    lambda route: _continue_with_prt(
+                        route, cookie["cookieName"], cookie["cookieContent"]
+                    ),
+                )
                 page = context.new_page()
                 captured = []
 
