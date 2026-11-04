@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from avd_client.launcher import _browser_candidates, _headless_auth
+from avd_client.launcher import _browser_candidates, _headless_auth, _safe_url
 
 URL = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize?x=1"
 REDIRECT = "ms-appx-web://microsoft.aad.brokerplugin/test?code=abc&state=xyz"
@@ -16,7 +16,7 @@ def _no_external_browsers(monkeypatch):
     monkeypatch.setattr("avd_client.launcher.shutil.which", lambda name: None)
 
 
-def _working_browser_type(redirect):
+def _working_browser_type(redirect, engine="chromium"):
     page = MagicMock()
     handlers = []
     page.on.side_effect = lambda event, handler: handlers.append(handler)
@@ -31,6 +31,8 @@ def _working_browser_type(redirect):
     context = MagicMock()
     context.new_page.return_value = page
     browser = MagicMock()
+    browser.version = "131.0.0.0"
+    browser.browser_type.name = engine
     browser.new_context.return_value = context
     browser_type = MagicMock()
     browser_type.launch.return_value = browser
@@ -38,9 +40,9 @@ def _working_browser_type(redirect):
 
 
 def _fake_playwright(redirect=REDIRECT, working="chromium"):
-    chromium, chrome_page = _working_browser_type(redirect)
-    firefox, firefox_page = _working_browser_type(redirect)
-    webkit, webkit_page = _working_browser_type(redirect)
+    chromium, chrome_page = _working_browser_type(redirect, "chromium")
+    firefox, firefox_page = _working_browser_type(redirect, "firefox")
+    webkit, webkit_page = _working_browser_type(redirect, "webkit")
     if working != "chromium":
         chromium.launch.side_effect = RuntimeError("no chromium")
     if working != "firefox":
@@ -74,6 +76,13 @@ class TestHeadlessAuth:
         fake, _ = _fake_playwright()
         mock_playwright.return_value = fake
         assert _headless_auth(URL) == REDIRECT
+        browser = fake.chromium.launch.return_value
+        options = browser.new_context.call_args.kwargs
+        assert "HeadlessChrome" not in options["user_agent"]
+        assert "Chrome/131.0.0.0" in options["user_agent"]
+        cookie = browser.new_context.return_value.add_cookies.call_args.args[0][0]
+        assert cookie["httpOnly"] is True
+        assert cookie["sameSite"] == "None"
 
     @patch("avd_client.launcher.get_prt_cookie",
            return_value={"cookieName": "n", "cookieContent": "c"})
@@ -82,6 +91,8 @@ class TestHeadlessAuth:
         fake, _ = _fake_playwright(working="firefox")
         mock_playwright.return_value = fake
         assert _headless_auth(URL) == REDIRECT
+        browser = fake.firefox.launch.return_value
+        assert browser.new_context.call_args.kwargs == {}
 
     @patch("avd_client.launcher.get_prt_cookie",
            return_value={"cookieName": "n", "cookieContent": "c"})
@@ -130,6 +141,45 @@ class TestHeadlessAuth:
     @patch("avd_client.launcher.get_prt_cookie",
            return_value={"cookieName": "n", "cookieContent": "c"})
     @patch("avd_client.launcher.sync_playwright")
+    def test_no_redirect_logs_page_state(self, mock_playwright, mock_cookie, caplog):
+        fake, page = _fake_playwright(redirect="https://example.invalid/")
+        page.url = "https://login.microsoftonline.com/common/login?code=SECRET"
+        page.title.return_value = "Sign in to your account"
+        page.content.return_value = "<html>AADSTS50058: silent auth failed</html>"
+        mock_playwright.return_value = fake
+        with caplog.at_level("INFO", logger="avd_client.launcher"):
+            assert _headless_auth(URL) == ""
+        text = caplog.text
+        assert "login.microsoftonline.com/common/login" in text
+        assert "Sign in to your account" in text
+        assert "AADSTS50058" in text
+        assert "SECRET" not in text
+
+    @patch("avd_client.launcher.get_prt_cookie",
+           return_value={"cookieName": "n", "cookieContent": "c"})
+    @patch("avd_client.launcher.sync_playwright")
+    def test_no_redirect_without_error_code(self, mock_playwright, mock_cookie, caplog):
+        fake, page = _fake_playwright(redirect="https://example.invalid/")
+        page.title.return_value = "Sign in"
+        page.content.return_value = "<html>no error code</html>"
+        mock_playwright.return_value = fake
+        with caplog.at_level("INFO", logger="avd_client.launcher"):
+            assert _headless_auth(URL) == ""
+        assert "AAD error code" not in caplog.text
+
+    @patch("avd_client.launcher.get_prt_cookie",
+           return_value={"cookieName": "n", "cookieContent": "c"})
+    @patch("avd_client.launcher.sync_playwright")
+    def test_no_redirect_title_error(self, mock_playwright, mock_cookie):
+        fake, page = _fake_playwright(redirect="https://example.invalid/")
+        page.title.side_effect = RuntimeError("closed")
+        page.content.side_effect = RuntimeError("closed")
+        mock_playwright.return_value = fake
+        assert _headless_auth(URL) == ""
+
+    @patch("avd_client.launcher.get_prt_cookie",
+           return_value={"cookieName": "n", "cookieContent": "c"})
+    @patch("avd_client.launcher.sync_playwright")
     def test_goto_error_is_ignored(self, mock_playwright, mock_cookie):
         fake, page = _fake_playwright()
         page.goto.side_effect = RuntimeError("nav")
@@ -156,3 +206,8 @@ class TestHeadlessAuth:
         assert "chrome" in labels and "msedge" in labels
         assert "brave" in labels and "opera" in labels and "librewolf" in labels
         assert "vivaldi" not in labels
+
+
+def test_safe_url_strips_query_and_fragment():
+    assert _safe_url("https://x.example/p?code=1#f") == "https://x.example/p"
+    assert _safe_url("about:blank") == "about:blank"

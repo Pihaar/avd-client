@@ -11,6 +11,7 @@ import subprocess
 import tempfile
 import time
 import webbrowser
+from urllib.parse import urlsplit, urlunsplit
 
 from .auth import get_prt_cookie
 from .config import (
@@ -95,6 +96,32 @@ def _browser_candidates(playwright):
         yield "librewolf", playwright.firefox, {"executable_path": path}
 
 
+def _safe_url(url: str) -> str:
+    """Drop query and fragment so diagnostics never contain an auth code."""
+    parts = urlsplit(url)
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, "", ""))
+
+
+def _context_options(browser) -> dict:
+    """Present a desktop Chrome user agent on Chromium based engines."""
+    if browser.browser_type.name != "chromium":
+        return {}
+    major = str(browser.version).split(".")[0]
+    user_agent = (
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+        f"(KHTML, like Gecko) Chrome/{major}.0.0.0 Safari/537.36"
+    )
+    return {"user_agent": user_agent}
+
+
+def _aad_error_code(page) -> str:
+    try:
+        match = re.search(r"AADSTS\d+", page.content())
+    except Exception:
+        return ""
+    return match.group(0) if match else ""
+
+
 def _headless_auth(auth_url: str) -> str:
     """Try the session-host login in a headless browser with a PRT SSO cookie."""
     if sync_playwright is None:
@@ -119,14 +146,15 @@ def _headless_auth(auth_url: str) -> str:
             if browser is None:
                 return ""
             try:
-                context = browser.new_context()
+                context = browser.new_context(**_context_options(browser))
                 context.add_cookies([{
                     "name": cookie["cookieName"],
                     "value": cookie["cookieContent"],
                     "domain": "login.microsoftonline.com",
                     "path": "/",
                     "secure": True,
-                    "http_only": True,
+                    "httpOnly": True,
+                    "sameSite": "None",
                 }])
                 page = context.new_page()
                 captured = []
@@ -160,7 +188,18 @@ def _headless_auth(auth_url: str) -> str:
                 if not captured and page.url.startswith("ms-appx-web://"):
                     captured.append(page.url)
                 if not captured:
-                    log.info("No ms-appx-web redirect in the headless browser")
+                    try:
+                        title = page.title()
+                    except Exception:
+                        title = "?"
+                    log.info(
+                        "No ms-appx-web redirect in the headless browser "
+                        "(page: %s, title: %s)",
+                        _safe_url(page.url), title,
+                    )
+                    error = _aad_error_code(page)
+                    if error:
+                        log.info("AAD error code: %s", error)
                 return captured[0] if captured else ""
             finally:
                 browser.close()
