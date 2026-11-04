@@ -1,6 +1,5 @@
 """Tests to close remaining coverage gaps."""
 
-import json
 import logging
 import os
 import sys
@@ -8,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from avd_client.security import install_token_redaction, _JWT_REDACTION_PATTERN
+from avd_client.security import install_token_redaction
 
 
 class TestInstallTokenRedaction:
@@ -41,19 +40,16 @@ class TestInstallTokenRedaction:
 
 class TestFavoritesSaveEdgeCases:
     def test_save_handles_write_error(self, xdg_config):
-        from avd_client.favorites import save_favorites
+        from avd_client.favorites import _favorites_path, save_favorites
         fav_dir = xdg_config / "avd-client"
         fav_dir.mkdir(mode=0o700)
-        # Make directory read-only to trigger error
-        fav_dir.chmod(0o555)
-        try:
+        with patch("avd_client.favorites.json.dump", side_effect=OSError("disk full")):
             with pytest.raises(OSError):
                 save_favorites({"d0e3096f-08bb-4959-a85a-08de6c261b58"})
-        finally:
-            fav_dir.chmod(0o755)
+        assert not os.path.exists(_favorites_path() + ".tmp")
 
     def test_save_caps_at_max(self, xdg_config):
-        from avd_client.favorites import save_favorites, load_favorites, _MAX_FAVORITES
+        from avd_client.favorites import _MAX_FAVORITES, load_favorites, save_favorites
         uuids = {f"{i:08x}-0000-0000-0000-000000000000" for i in range(1500)}
         save_favorites(uuids)
         loaded = load_favorites()
@@ -72,7 +68,7 @@ class TestMainConnectFlow:
     def test_full_connect_flow(self, mock_launch, mock_build, mock_download,
                                 mock_fetch, mock_discover, mock_broker_cls,
                                 mock_ver, mock_res):
-        from avd_client.feed import Workspace, Resource
+        from avd_client.feed import Resource, Workspace
         mock_broker = MagicMock()
         mock_broker.connect.return_value = None
         mock_broker.get_version.return_value = "3.0.2"
@@ -246,8 +242,8 @@ class TestMainSelectWithMultipleWorkspaces:
     def test_interactive_workspace_select(self, mock_launch, mock_build, mock_download,
                                            mock_fetch, mock_discover, mock_broker_cls,
                                            mock_ver, mock_res):
-        from avd_client.feed import Workspace, Resource
         from avd_client.__main__ import main
+        from avd_client.feed import Resource, Workspace
         mock_broker = MagicMock()
         mock_broker.connect.return_value = None
         mock_broker.get_version.return_value = "3.0.2"
