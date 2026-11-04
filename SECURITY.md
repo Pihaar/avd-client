@@ -11,6 +11,8 @@
 | App → xfreerdp (exec) | Info Disclosure: token in argv | **ACCEPTED**: FreeRDP only accepts bearer token via CLI argument. Visible in `/proc/PID/cmdline` to same-UID processes. Token lifetime ~1h. | Same-UID attacker can read token for session duration |
 | App → xfreerdp | Injection: malicious session_host | Hostname regex validation (RFC 1035, allowlisted domains) | N/A |
 | App → Browser (auth) | Phishing: malicious auth URL | URL regex validates `https://login.microsoftonline.com/` prefix | URL with `@` userinfo could redirect (low risk) |
+| App → Browser (PKCE) | CSRF: forged callback | Random `state` compared with `secrets.compare_digest`; redirect URL limited to the Microsoft nativeclient path | N/A |
+| App → Browser (PKCE) | Info Disclosure: authorization code | Code exchanged immediately; code verifier, code, and tokens never logged; redirect URL not echoed | Browser history may retain the code briefly |
 | Protocol Handler → App | Injection: malicious redirect URL | URL must start with `ms-appx-web://microsoft.aad.brokerplugin/`; no control characters; length capped at 8192 | Same-UID process can write callback file |
 | Protocol Handler | Squatting: competing handler | Check `xdg-mime query default` before use; warn if not ours | Any same-UID process can re-register |
 | xfreerdp → Gateway | MITM: cert:tofu | Gateway uses TLS + Bearer auth; inner RDP-TLS is defence-in-depth | First-connect TOFU = trust without prior verification |
@@ -37,6 +39,19 @@
 | SEC-278 URL Handling | Feed URLs validated against domain allowlist; no redirect following |
 | SEC-309 Secret Management | Token not persisted to disk; callback file mode 0600; atomic writes |
 | SEC-375 SSRF Protection | No redirect handler in urllib opener; hostname allowlist on all fetched URLs |
+
+## Broker-free PKCE Authentication
+
+When the broker is unavailable, `auth.py` uses OAuth2 authorization code with
+PKCE (S256). The flow opens the Microsoft sign-in page, validates the returned
+`state`, and exchanges the code immediately. The redirect URL must use
+`https://login.microsoftonline.com/common/oauth2/nativeclient`; `security.py`
+parses the code and state without echoing either value.
+
+The access token and refresh token are kept in memory only and are never
+persisted. The ID token is parsed for the UPN without signature verification
+because it is read directly from the TLS token endpoint and is used only as the
+FreeRDP username hint. SEC-309 (no token persistence) applies unchanged.
 
 ## Incident Response
 

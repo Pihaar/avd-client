@@ -97,19 +97,22 @@ class TestMainErrorHandling:
 
     @patch("avd_client.__main__.resolve_binary", return_value="/usr/local/bin/xfreerdp")
     @patch("avd_client.__main__.check_version", return_value=(3, 10, 2))
-    @patch("avd_client.__main__.BrokerClient")
-    def test_broker_error_exits_2(self, mock_broker_cls, mock_ver, mock_res):
+    @patch("avd_client.auth.BrokerClient")
+    @patch("avd_client.auth._pkce_auth")
+    def test_broker_error_exits_2(self, mock_pkce, mock_broker_cls, mock_ver, mock_res):
+        from avd_client.auth import AuthError
         from avd_client.broker import BrokerError
         mock_broker = MagicMock()
         mock_broker.connect.side_effect = BrokerError("not installed")
         mock_broker_cls.return_value = mock_broker
+        mock_pkce.side_effect = AuthError("no browser auth")
         with pytest.raises(SystemExit) as exc_info:
             main([])
         assert exc_info.value.code == 2
 
     @patch("avd_client.__main__.resolve_binary", return_value="/usr/local/bin/xfreerdp")
     @patch("avd_client.__main__.check_version", return_value=(3, 10, 2))
-    @patch("avd_client.__main__.BrokerClient")
+    @patch("avd_client.auth.BrokerClient")
     @patch("avd_client.__main__.discover_workspaces")
     def test_feed_error_exits_3(self, mock_discover, mock_broker_cls, mock_ver, mock_res):
         from avd_client.feed import FeedError
@@ -128,7 +131,7 @@ class TestMainErrorHandling:
 class TestMainListFlow:
     @patch("avd_client.__main__.resolve_binary", return_value="/usr/local/bin/xfreerdp")
     @patch("avd_client.__main__.check_version", return_value=(3, 10, 2))
-    @patch("avd_client.__main__.BrokerClient")
+    @patch("avd_client.auth.BrokerClient")
     @patch("avd_client.__main__.discover_workspaces")
     @patch("avd_client.__main__.fetch_resources")
     def test_list_exits_0(self, mock_fetch, mock_discover, mock_broker_cls, mock_ver,

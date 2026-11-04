@@ -59,7 +59,7 @@ class TestFavoritesSaveEdgeCases:
 class TestMainConnectFlow:
     @patch("avd_client.__main__.resolve_binary", return_value="/usr/local/bin/xfreerdp")
     @patch("avd_client.__main__.check_version", return_value=(3, 10, 2))
-    @patch("avd_client.__main__.BrokerClient")
+    @patch("avd_client.auth.BrokerClient")
     @patch("avd_client.__main__.discover_workspaces")
     @patch("avd_client.__main__.fetch_resources")
     @patch("avd_client.__main__.download_rdp_file")
@@ -93,7 +93,7 @@ class TestMainConnectFlow:
 
     @patch("avd_client.__main__.resolve_binary", return_value="/usr/local/bin/xfreerdp")
     @patch("avd_client.__main__.check_version", return_value=(3, 10, 2))
-    @patch("avd_client.__main__.BrokerClient")
+    @patch("avd_client.auth.BrokerClient")
     @patch("avd_client.__main__.discover_workspaces")
     @patch("avd_client.__main__.fetch_resources")
     def test_no_resources_exits_3(self, mock_fetch, mock_discover, mock_broker_cls,
@@ -233,7 +233,7 @@ class TestLauncherManualWithFrontendSecurityError:
 class TestMainSelectWithMultipleWorkspaces:
     @patch("avd_client.__main__.resolve_binary", return_value="/usr/local/bin/xfreerdp")
     @patch("avd_client.__main__.check_version", return_value=(3, 10, 2))
-    @patch("avd_client.__main__.BrokerClient")
+    @patch("avd_client.auth.BrokerClient")
     @patch("avd_client.__main__.discover_workspaces")
     @patch("avd_client.__main__.fetch_resources")
     @patch("avd_client.__main__.download_rdp_file")

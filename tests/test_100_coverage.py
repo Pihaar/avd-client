@@ -40,7 +40,7 @@ class TestMainResourceSelection:
 
     @patch("avd_client.__main__.resolve_binary", return_value="/usr/local/bin/xfreerdp")
     @patch("avd_client.__main__.check_version", return_value=(3, 10, 2))
-    @patch("avd_client.__main__.BrokerClient")
+    @patch("avd_client.auth.BrokerClient")
     def test_favorite_remove(self, mock_broker_cls, mock_ver, mock_res, xdg_config):
         from avd_client.__main__ import main
         from avd_client.favorites import save_favorites
@@ -72,7 +72,7 @@ class TestMainExceptionHandlers:
 
     @patch("avd_client.__main__.resolve_binary", return_value="/usr/local/bin/xfreerdp")
     @patch("avd_client.__main__.check_version", return_value=(3, 10, 2))
-    @patch("avd_client.__main__.BrokerClient")
+    @patch("avd_client.auth.BrokerClient")
     def test_value_error_exits_1(self, mock_broker_cls, mock_ver, mock_res):
         from avd_client.__main__ import main
         mock_broker = MagicMock()

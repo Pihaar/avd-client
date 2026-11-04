@@ -1,10 +1,10 @@
 # avd-client
 
-Native Linux client for Azure Virtual Desktop (AVD). Connects to SAP AVD desktops using Microsoft Identity Broker authentication — no browser login required for the gateway connection.
+Native Linux client for Azure Virtual Desktop (AVD). Connects to SAP AVD desktops with Microsoft Identity Broker authentication or a browser-based PKCE login for devices without Intune.
 
 ## Features
 
-- Automatic authentication via `microsoft-identity-broker` (D-Bus)
+- Automatic authentication via `microsoft-identity-broker` (D-Bus), with a browser PKCE fallback
 - AVD workspace discovery (all assigned desktops/RemoteApps)
 - One-command connection to AVD session hosts via FreeRDP
 - Local favorites management
@@ -13,7 +13,7 @@ Native Linux client for Azure Virtual Desktop (AVD). Connects to SAP AVD desktop
 
 ## Requirements
 
-- Linux with `microsoft-identity-broker` installed and device enrolled in Intune
+- Linux with `microsoft-identity-broker` and an Intune-enrolled device, or a browser for the PKCE login on private devices
 - FreeRDP >= 3.5.0 (with `WITH_AAD=ON`)
 - Python >= 3.9
 - `dbus-python` >= 1.2
@@ -77,6 +77,16 @@ LANGUAGE=de avd-client --list
 └──────────────────────────────────────────────────────────┘
 ```
 
+Authentication uses the broker when it is available. On private devices without
+Intune, the client falls back to an OAuth2 authorization-code flow with PKCE.
+
+## Private devices without Intune
+
+If the broker is unavailable or no account is enrolled, `avd-client` opens the
+Microsoft sign-in page and then asks for the full redirect URL from the browser
+address bar. The URL contains the authorization code; the client validates the
+state and exchanges the code immediately. The refresh token stays in memory only.
+
 ## Configuration
 
 | Environment Variable | Description |
@@ -92,7 +102,7 @@ Favorites are stored in `~/.config/avd-client/favorites.json`.
 | Problem | Solution |
 |---|---|
 | "Cannot connect to microsoft-identity-broker" | Install: `dnf install microsoft-identity-broker` |
-| "No accounts found" | Run `intune-portal` to enroll the device |
+| "No accounts found" | The client falls back to the browser PKCE login; run `intune-portal` to enroll the device if the broker is wanted |
 | "xfreerdp3 not found" | Install FreeRDP >= 3.5.0 |
 | Browser doesn't open | Check X11/Wayland display is available |
 | Auth redirect not received | Verify protocol handler: `xdg-mime query default x-scheme-handler/ms-appx-web` |

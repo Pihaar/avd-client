@@ -200,6 +200,12 @@ class TestTokenRedactionFilter:
         filt.filter(record)
         assert record.msg == "normal message"
 
+    def test_non_dict_non_tuple_args(self):
+        filt = TokenRedactionFilter()
+        record = logging.LogRecord("test", logging.INFO, "", 0, "value: %s", None, None)
+        record.args = ["a"]
+        assert filt.filter(record) is True
+
     def test_redacts_5_part_jwe(self):
         filt = TokenRedactionFilter()
         jwe = "eyJhbGciOiJkaXIi..ivdata.ciphertext.authtag"

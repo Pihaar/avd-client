@@ -1,12 +1,11 @@
 """CLI entry point for avd-client."""
 
 import argparse
-import hashlib
 import logging
 import sys
 
 from . import __version__
-from .broker import BrokerClient, BrokerError
+from .auth import AuthError, get_token
 from .favorites import load_favorites, toggle_favorite
 from .feed import FeedError, discover_workspaces, download_rdp_file, fetch_resources
 from .i18n import _
@@ -54,10 +53,6 @@ def parse_args(argv=None):
     )
     parser.add_argument("-v", "--verbose", action="count", default=0, help=_("Increase verbosity"))
     return parser.parse_args(argv)
-
-
-def _upn_hash(username: str) -> str:
-    return hashlib.sha256(username.encode()).hexdigest()[:12]
 
 
 def _select_workspace(frontend, workspaces, preference=None):
@@ -112,15 +107,10 @@ def main(argv=None):
         check_version(binary)
 
         # Auth
-        broker = BrokerClient()
-        broker.connect()
-        log.info("Broker version: %s", broker.get_version())
-        accounts = broker.get_accounts()
-        account = accounts[0]
-        username = account.get("username", "")
-        log.info("Account: %s", _upn_hash(username))
-
-        token = broker.acquire_token(account)
+        auth = get_token(frontend)
+        token = auth.token
+        username = auth.username
+        log.info("Authentication source: %s", auth.source)
 
         # Discovery
         workspaces = discover_workspaces(token)
@@ -161,7 +151,7 @@ def main(argv=None):
                            session_info={"title": resource.title, "host": workspace.name})
         sys.exit(exit_code)
 
-    except BrokerError as e:
+    except AuthError as e:
         frontend.notify_error(_("Auth error: {msg}").format(msg=str(e)[:200]))
         sys.exit(2)
     except FeedError as e:

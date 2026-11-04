@@ -3,6 +3,7 @@
 import logging
 import re
 import sys
+from urllib.parse import parse_qs, urlparse
 
 from .config import HOSTNAME_PATTERN, MAX_HOSTNAME_LENGTH
 
@@ -70,9 +71,31 @@ def validate_redirect_url(url: str) -> str:
     return url
 
 
+def validate_pkce_redirect(url: str) -> tuple:
+    """Return (code, state) from the nativeclient redirect; never echo either value."""
+    if not url:
+        raise SecurityError("Empty redirect URL")
+    if _CONTROL_CHAR_PATTERN.search(url):
+        raise SecurityError("Redirect URL contains control characters")
+    if len(url) > 8192:
+        raise SecurityError("Redirect URL too long")
+    parsed = urlparse(url)
+    if parsed.scheme != "https" or (parsed.hostname or "").lower() != "login.microsoftonline.com":
+        raise SecurityError("Redirect URL is not a Microsoft login URL")
+    if not parsed.path.startswith("/common/oauth2/nativeclient"):
+        raise SecurityError("Redirect URL has an unexpected path")
+    query = parse_qs(parsed.query)
+    code = query.get("code", [""])[0]
+    state = query.get("state", [""])[0]
+    if not code or not state:
+        raise SecurityError("Redirect URL is missing code or state")
+    if len(code) > 8192 or len(state) > 256:
+        raise SecurityError("Redirect parameters are too long")
+    return code, state
+
+
 def validate_feed_url(url: str) -> str:
     """Validate that a feed-returned URL points to an allowed Microsoft host."""
-    from urllib.parse import urlparse
     parsed = urlparse(url)
     if parsed.scheme != "https":
         raise SecurityError(f"Feed URL must use HTTPS: {url[:50]}")
