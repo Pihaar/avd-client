@@ -102,6 +102,10 @@ def _headless_auth(auth_url: str) -> str:
     cookie = get_prt_cookie(auth_url)
     if not cookie:
         return ""
+    log.info(
+        "PRT cookie acquired (%s, %d chars)",
+        cookie["cookieName"], len(cookie["cookieContent"]),
+    )
     try:
         with sync_playwright() as playwright:
             browser = None
@@ -131,18 +135,32 @@ def _headless_auth(auth_url: str) -> str:
                     if request.url.startswith("ms-appx-web://"):
                         captured.append(request.url)
 
+                def on_navigation(frame):
+                    if frame.url.startswith("ms-appx-web://"):
+                        captured.append(frame.url)
+
                 page.on("request", on_request)
+                page.on("framenavigated", on_navigation)
+                response = None
                 try:
-                    page.goto(auth_url, wait_until="commit", timeout=15000)
-                except Exception:
-                    pass
-                for _ in range(120):
+                    response = page.goto(auth_url, wait_until="commit", timeout=10000)
+                    log.info(
+                        "Authorize page status: %s",
+                        response.status if response else "no response",
+                    )
+                except Exception as e:
+                    log.info("Authorize page navigation failed: %s", type(e).__name__)
+                for _ in range(40):
                     if captured:
                         break
                     try:
                         page.wait_for_timeout(250)
                     except Exception:
                         break
+                if not captured and page.url.startswith("ms-appx-web://"):
+                    captured.append(page.url)
+                if not captured:
+                    log.info("No ms-appx-web redirect in the headless browser")
                 return captured[0] if captured else ""
             finally:
                 browser.close()

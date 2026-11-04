@@ -26,6 +26,7 @@ def _working_browser_type(redirect):
             handler(SimpleNamespace(url=redirect))
 
     page.goto.side_effect = goto
+    page.url = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
     page.wait_for_timeout.return_value = None
     context = MagicMock()
     context.new_page.return_value = page
@@ -107,6 +108,16 @@ class TestHeadlessAuth:
     def test_playwright_context_error(self, mock_playwright, mock_cookie):
         mock_playwright.side_effect = RuntimeError("no playwright")
         assert _headless_auth(URL) == ""
+
+    @patch("avd_client.launcher.get_prt_cookie",
+           return_value={"cookieName": "n", "cookieContent": "c"})
+    @patch("avd_client.launcher.sync_playwright")
+    def test_page_url_fallback(self, mock_playwright, mock_cookie):
+        fake, page = _fake_playwright(redirect="https://example.invalid/")
+        page.goto.side_effect = lambda url, **kwargs: None
+        page.url = REDIRECT
+        mock_playwright.return_value = fake
+        assert _headless_auth(URL) == REDIRECT
 
     @patch("avd_client.launcher.get_prt_cookie",
            return_value={"cookieName": "n", "cookieContent": "c"})
