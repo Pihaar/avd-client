@@ -48,10 +48,11 @@ class BrokerClient:
         result = self._call("getLinuxBrokerVersion", "{}")
         return result.get("linuxBrokerVersion", "unknown")
 
-    def get_accounts(self) -> list:
+    def get_accounts(self, client_id: str = RDP_CLIENT_ID,
+                     redirect_uri: str = RDP_REDIRECT_URI) -> list:
         request = json.dumps({
-            "clientId": RDP_CLIENT_ID,
-            "redirectUri": RDP_REDIRECT_URI,
+            "clientId": client_id,
+            "redirectUri": redirect_uri,
             "environment": "login.microsoftonline.com",
         })
         result = self._call("getAccounts", request)
@@ -108,17 +109,14 @@ class BrokerClient:
         return token
 
     def acquire_prt_sso_cookie(self, account: dict, sso_url: str) -> dict:
+        # Parameter set mirrors the linux-entra-sso PRT implementation.
         auth_params = {
             "account": account,
             "additionalQueryParametersForAuthorization": {},
             "authority": "https://login.microsoftonline.com/common",
             "authorizationType": 8,
             "clientId": EDGE_BROWSER_CLIENT_ID,
-            "enrollmentId": "",
-            "isTestMode": False,
-            "popParams": None,
             "redirectUri": RDP_REDIRECT_URI,
-            "requestOptions": [205, 202],
             "requestedScopes": [GRAPH_SCOPE],
             "username": account.get("username", ""),
             "uxContextHandle": -1,

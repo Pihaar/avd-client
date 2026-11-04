@@ -58,6 +58,21 @@ class TestBrokerClient:
         accounts = client.get_accounts()
         assert len(accounts) == 1
         assert accounts[0]["username"] == "test@example.com"
+        request = json.loads(client._iface.getAccounts.call_args[0][2])
+        assert request["clientId"] == "a85cf173-4192-42f8-81fa-777a763e6e2c"
+
+    def test_get_accounts_with_edge_client(self):
+        client = self._make_client()
+        client._iface.getAccounts.return_value = SAMPLE_ACCOUNTS
+        client.get_accounts(
+            client_id="d7b530a4-7680-4c23-a8bf-c52c121d2e87",
+            redirect_uri="https://login.microsoftonline.com/common/oauth2/nativeclient",
+        )
+        request = json.loads(client._iface.getAccounts.call_args[0][2])
+        assert request["clientId"] == "d7b530a4-7680-4c23-a8bf-c52c121d2e87"
+        assert request["redirectUri"] == (
+            "https://login.microsoftonline.com/common/oauth2/nativeclient"
+        )
 
     def test_get_accounts_empty_raises(self):
         client = self._make_client()
@@ -140,7 +155,13 @@ class TestBrokerClient:
         }
         request = json.loads(client._iface.acquirePrtSsoCookie.call_args[0][2])
         assert request["authParameters"]["authorizationType"] == 8
-        assert request["authParameters"]["clientId"] == "ecd6b820-32c2-49b6-98a6-444530e5a77a"
+        assert request["authParameters"]["clientId"] == (
+            "d7b530a4-7680-4c23-a8bf-c52c121d2e87"
+        )
+        assert request["authParameters"]["redirectUri"] == (
+            "https://login.microsoftonline.com/common/oauth2/nativeclient"
+        )
+        assert "requestOptions" not in request["authParameters"]
         assert request["ssoUrl"].startswith("https://login.microsoftonline.com/")
 
     def test_acquire_prt_sso_cookie_v3(self):

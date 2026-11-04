@@ -228,15 +228,22 @@ def test_safe_url_strips_query_and_fragment():
 def test_continue_with_prt_falls_back_without_headers():
     route = MagicMock()
     route.request.headers = {"accept": "text/html"}
+    route.request.resource_type = "image"
     route.continue_.side_effect = [RuntimeError("closed"), None]
     _continue_with_prt(route, "n", "c")
     assert route.continue_.call_count == 2
     route.continue_.assert_called_with()
 
 
-def test_continue_with_prt_swallows_errors():
+def test_continue_with_prt_swallows_errors(caplog):
     route = MagicMock()
     route.request.headers = {}
+    route.request.resource_type = "document"
+    route.request.url = "https://login.microsoftonline.com/common/login?code=SECRET"
     route.continue_.side_effect = RuntimeError("closed")
-    _continue_with_prt(route, "n", "c")
+    with caplog.at_level("INFO", logger="avd_client.launcher"):
+        _continue_with_prt(route, "n", "c")
     assert route.continue_.call_count == 2
+    assert "PRT header injected for https://login.microsoftonline.com/common/login" in caplog.text
+    assert "PRT header injection failed: RuntimeError" in caplog.text
+    assert "SECRET" not in caplog.text

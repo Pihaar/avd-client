@@ -14,6 +14,7 @@ from dataclasses import dataclass
 
 from .broker import BrokerClient, BrokerError
 from .config import (
+    EDGE_BROWSER_CLIENT_ID,
     PKCE_AUTHORIZE_URL,
     PKCE_MAX_RESPONSE_BYTES,
     PKCE_SCOPE,
@@ -281,7 +282,10 @@ def get_prt_cookie(sso_url: str):
         validate_authorize_url(sso_url)
         broker = BrokerClient()
         broker.connect()
-        accounts = broker.get_accounts()
+        accounts = broker.get_accounts(
+            client_id=EDGE_BROWSER_CLIENT_ID,
+            redirect_uri=RDP_REDIRECT_URI,
+        )
         return broker.acquire_prt_sso_cookie(accounts[0], sso_url)
     except Exception as e:
         log.info("PRT cookie unavailable: %s", type(e).__name__)

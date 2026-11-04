@@ -127,8 +127,11 @@ def _continue_with_prt(route, name: str, value: str) -> None:
     try:
         headers = dict(route.request.headers)
         headers[name] = value
+        if route.request.resource_type == "document":
+            log.info("PRT header injected for %s", _safe_url(route.request.url))
         route.continue_(headers=headers)
-    except Exception:
+    except Exception as e:
+        log.warning("PRT header injection failed: %s", type(e).__name__)
         try:
             route.continue_()
         except Exception:

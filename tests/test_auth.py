@@ -241,6 +241,10 @@ class TestPrtCookie:
             "cookieName": "cookie",
             "cookieContent": "content",
         }
+        broker.get_accounts.assert_called_once_with(
+            client_id="d7b530a4-7680-4c23-a8bf-c52c121d2e87",
+            redirect_uri="https://login.microsoftonline.com/common/oauth2/nativeclient",
+        )
 
     @patch("avd_client.auth.BrokerClient")
     def test_broker_error_returns_none(self, mock_cls):
