@@ -1,0 +1,162 @@
+# German translations for avd-client package
+# German translation for avd-client.
+# Copyright (C) 2026 THE avd-client'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the avd-client package.
+# Automatically generated, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: avd-client 0.2.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-05-29 15:33+0200\n"
+"PO-Revision-Date: 2026-05-29 15:33+0200\n"
+"Last-Translator: Automatically generated\n"
+"Language-Team: none\n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: src/avd_client/__main__.py:38
+msgid "Native Linux client for Azure Virtual Desktop"
+msgstr "Nativer Linux-Client für Azure Virtual Desktop"
+
+#: src/avd_client/__main__.py:41
+msgid "List available desktops and exit"
+msgstr "Verfügbare Desktops auflisten und beenden"
+
+#: src/avd_client/__main__.py:42
+msgid "Connect to a specific resource by title"
+msgstr "Zu einer bestimmten Ressource per Titel verbinden"
+
+#: src/avd_client/__main__.py:43
+msgid "Select workspace by name substring"
+msgstr "Workspace nach Namens-Teilstring auswählen"
+
+#: src/avd_client/__main__.py:44
+msgid "Enable clipboard sharing"
+msgstr "Zwischenablage-Freigabe aktivieren"
+
+#: src/avd_client/__main__.py:45
+msgid "Enable audio output"
+msgstr "Audio-Ausgabe aktivieren"
+
+#: src/avd_client/__main__.py:46
+msgid "Enable microphone sharing"
+msgstr "Mikrofon-Freigabe aktivieren"
+
+#: src/avd_client/__main__.py:47
+msgid "Enable multi-monitor"
+msgstr "Multi-Monitor aktivieren"
+
+#: src/avd_client/__main__.py:48
+msgid "Toggle a resource as favorite by ID"
+msgstr "Ressource per ID als Favorit setzen/entfernen"
+
+#: src/avd_client/__main__.py:49
+msgid "Show all resources (including non-favorites)"
+msgstr "Alle Ressourcen anzeigen (inkl. Nicht-Favoriten)"
+
+#: src/avd_client/__main__.py:50
+msgid "Increase verbosity"
+msgstr "Ausführlichkeit erhöhen"
+
+#: src/avd_client/__main__.py:63
+#, python-brace-format
+msgid "No workspace matching '{name}'."
+msgstr "Kein Workspace mit '{name}' gefunden."
+
+#: src/avd_client/__main__.py:70
+msgid "Available workspaces:"
+msgstr "Verfügbare Workspaces:"
+
+#: src/avd_client/__main__.py:79
+#, python-brace-format
+msgid "No resource matching '{name}'."
+msgstr "Keine Ressource mit '{name}' gefunden."
+
+#: src/avd_client/__main__.py:86
+msgid "Available resources:"
+msgstr "Verfügbare Ressourcen:"
+
+#: src/avd_client/__main__.py:100
+#, python-brace-format
+msgid "Added to favorites: {id}"
+msgstr "Zu Favoriten hinzugefügt: {id}"
+
+#: src/avd_client/__main__.py:102
+#, python-brace-format
+msgid "Removed from favorites: {id}"
+msgstr "Von Favoriten entfernt: {id}"
+
+#: src/avd_client/__main__.py:138
+#, python-brace-format
+msgid "No resources in workspace '{name}'."
+msgstr "Keine Ressourcen im Workspace '{name}'."
+
+#: src/avd_client/__main__.py:158
+#, python-brace-format
+msgid "Auth error: {msg}"
+msgstr "Authentifizierungsfehler: {msg}"
+
+#: src/avd_client/__main__.py:161
+#, python-brace-format
+msgid "Feed error: {msg}"
+msgstr "Feed-Fehler: {msg}"
+
+#: src/avd_client/__main__.py:164
+#, python-brace-format
+msgid "Launcher error: {msg}"
+msgstr "Starter-Fehler: {msg}"
+
+#: src/avd_client/__main__.py:167
+#, python-brace-format
+msgid "Security error: {msg}"
+msgstr "Sicherheitsfehler: {msg}"
+
+#: src/avd_client/launcher.py:269 src/avd_client/ui.py:65
+msgid "Browser opened for authentication..."
+msgstr "Browser wird für Anmeldung geöffnet..."
+
+#: src/avd_client/launcher.py:277
+msgid "Could not open browser. Open manually:"
+msgstr "Browser konnte nicht geöffnet werden. Bitte manuell öffnen:"
+
+#: src/avd_client/launcher.py:297 src/avd_client/ui.py:68
+msgid "Authentication successful, establishing connection..."
+msgstr "Authentifizierung erfolgreich, Verbindung wird aufgebaut..."
+
+#: src/avd_client/launcher.py:300
+msgid ""
+"No automatic redirect received.\n"
+"Please copy the URL from the browser address bar (starts with ms-appx-"
+"web://):"
+msgstr ""
+
+#: src/avd_client/ui.py:41
+#, python-brace-format
+msgid "Select [1-{n}]: "
+msgstr "Auswahl [1-{n}]: "
+
+#: src/avd_client/ui.py:49
+#, python-brace-format
+msgid "  Enter a number between 1 and {n}"
+msgstr "  Bitte eine Zahl zwischen 1 und {n} eingeben"
+
+#: src/avd_client/ui.py:71
+#, python-brace-format
+msgid "Connecting to: {title}..."
+msgstr "Verbinde mit: {title}..."
+
+#: src/avd_client/ui.py:81
+msgid "(no resources)"
+msgstr "(keine Ressourcen)"
+
+#: src/avd_client/ui.py:92
+msgid "(* = Favorite. Use --all to show all desktops)"
+msgstr "(* = Favorit. --all zeigt alle Desktops)"
+
+#: src/avd_client/ui.py:94
+msgid "(No favorites set. Use --favorite <id> to set one)"
+msgstr "(Keine Favoriten gesetzt. --favorite <id> zum Setzen)"

@@ -1,0 +1,39 @@
+"""Configuration constants for avd-client."""
+
+import os
+import re
+
+# Microsoft Identity Broker (D-Bus)
+BROKER_BUS_NAME = "com.microsoft.identity.broker1"
+BROKER_OBJECT_PATH = "/com/microsoft/identity/broker1"
+BROKER_INTERFACE = "com.microsoft.identity.Broker1"
+BROKER_TIMEOUT = 30  # seconds (first activation can take 25s)
+
+# OAuth / Token
+RDP_CLIENT_ID = "a85cf173-4192-42f8-81fa-777a763e6e2c"
+RDP_REDIRECT_URI = "https://login.microsoftonline.com/common/oauth2/nativeclient"
+AVD_SCOPE = "https://www.wvd.microsoft.com/.default"
+
+# Feed Discovery
+FEED_URL = "https://rdweb.wvd.microsoft.com/api/arm/feeddiscovery"
+FEED_USER_AGENT = "Microsoft.RDInfra.RDClient/10.0.0"
+FEED_MAX_RESPONSE_BYTES = 10 * 1024 * 1024  # 10 MB
+
+# Feed XML namespaces
+NS_DISCOVERY = "http://schemas.microsoft.com/ts/2014/03/tswfdiscovery"
+NS_WEBFEED = "http://schemas.microsoft.com/ts/2007/05/tswf"
+
+# FreeRDP
+FREERDP_BIN = os.environ.get("FREERDP_BIN", "")
+FREERDP_SEARCH_NAMES = ("xfreerdp3", "xfreerdp")
+FREERDP_MIN_VERSION = (3, 5, 0)
+FREERDP_ALLOWED_PATHS = ("/usr/bin/", "/usr/local/bin/", "/usr/lib/freerdp3/", "/usr/lib64/")
+FREERDP_VERSION_PATTERN = re.compile(r"(\d+)\.(\d+)\.(\d+)")
+
+# Hostname allowlist for session hosts and gateways
+HOSTNAME_PATTERN = re.compile(
+    r"^([a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?)"
+    r"(\.[a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?)*"
+    r"\.(wvd|cloudpc)\.microsoft\.com$"
+)
+MAX_HOSTNAME_LENGTH = 253

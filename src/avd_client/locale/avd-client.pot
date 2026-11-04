@@ -1,0 +1,161 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the avd-client package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: avd-client 0.2.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-05-29 15:33+0200\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=CHARSET\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: src/avd_client/__main__.py:38
+msgid "Native Linux client for Azure Virtual Desktop"
+msgstr ""
+
+#: src/avd_client/__main__.py:41
+msgid "List available desktops and exit"
+msgstr ""
+
+#: src/avd_client/__main__.py:42
+msgid "Connect to a specific resource by title"
+msgstr ""
+
+#: src/avd_client/__main__.py:43
+msgid "Select workspace by name substring"
+msgstr ""
+
+#: src/avd_client/__main__.py:44
+msgid "Enable clipboard sharing"
+msgstr ""
+
+#: src/avd_client/__main__.py:45
+msgid "Enable audio output"
+msgstr ""
+
+#: src/avd_client/__main__.py:46
+msgid "Enable microphone sharing"
+msgstr ""
+
+#: src/avd_client/__main__.py:47
+msgid "Enable multi-monitor"
+msgstr ""
+
+#: src/avd_client/__main__.py:48
+msgid "Toggle a resource as favorite by ID"
+msgstr ""
+
+#: src/avd_client/__main__.py:49
+msgid "Show all resources (including non-favorites)"
+msgstr ""
+
+#: src/avd_client/__main__.py:50
+msgid "Increase verbosity"
+msgstr ""
+
+#: src/avd_client/__main__.py:63
+#, python-brace-format
+msgid "No workspace matching '{name}'."
+msgstr ""
+
+#: src/avd_client/__main__.py:70
+msgid "Available workspaces:"
+msgstr ""
+
+#: src/avd_client/__main__.py:79
+#, python-brace-format
+msgid "No resource matching '{name}'."
+msgstr ""
+
+#: src/avd_client/__main__.py:86
+msgid "Available resources:"
+msgstr ""
+
+#: src/avd_client/__main__.py:100
+#, python-brace-format
+msgid "Added to favorites: {id}"
+msgstr ""
+
+#: src/avd_client/__main__.py:102
+#, python-brace-format
+msgid "Removed from favorites: {id}"
+msgstr ""
+
+#: src/avd_client/__main__.py:138
+#, python-brace-format
+msgid "No resources in workspace '{name}'."
+msgstr ""
+
+#: src/avd_client/__main__.py:158
+#, python-brace-format
+msgid "Auth error: {msg}"
+msgstr ""
+
+#: src/avd_client/__main__.py:161
+#, python-brace-format
+msgid "Feed error: {msg}"
+msgstr ""
+
+#: src/avd_client/__main__.py:164
+#, python-brace-format
+msgid "Launcher error: {msg}"
+msgstr ""
+
+#: src/avd_client/__main__.py:167
+#, python-brace-format
+msgid "Security error: {msg}"
+msgstr ""
+
+#: src/avd_client/launcher.py:269 src/avd_client/ui.py:65
+msgid "Browser opened for authentication..."
+msgstr ""
+
+#: src/avd_client/launcher.py:277
+msgid "Could not open browser. Open manually:"
+msgstr ""
+
+#: src/avd_client/launcher.py:297 src/avd_client/ui.py:68
+msgid "Authentication successful, establishing connection..."
+msgstr ""
+
+#: src/avd_client/launcher.py:300
+msgid ""
+"No automatic redirect received.\n"
+"Please copy the URL from the browser address bar (starts with ms-appx-"
+"web://):"
+msgstr ""
+
+#: src/avd_client/ui.py:41
+#, python-brace-format
+msgid "Select [1-{n}]: "
+msgstr ""
+
+#: src/avd_client/ui.py:49
+#, python-brace-format
+msgid "  Enter a number between 1 and {n}"
+msgstr ""
+
+#: src/avd_client/ui.py:71
+#, python-brace-format
+msgid "Connecting to: {title}..."
+msgstr ""
+
+#: src/avd_client/ui.py:81
+msgid "(no resources)"
+msgstr ""
+
+#: src/avd_client/ui.py:92
+msgid "(* = Favorite. Use --all to show all desktops)"
+msgstr ""
+
+#: src/avd_client/ui.py:94
+msgid "(No favorites set. Use --favorite <id> to set one)"
+msgstr ""

@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=AVD Client Auth Handler
+Comment=Handles ms-appx-web:// protocol redirects for Azure Virtual Desktop authentication
+Exec=avd-client-protocol-handler %u
+NoDisplay=true
+MimeType=x-scheme-handler/ms-appx-web;
