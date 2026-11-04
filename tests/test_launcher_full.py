@@ -1,10 +1,8 @@
 """Comprehensive tests for launcher.py — including launch() with full PTY mocking."""
 
 import os
-import signal
 import subprocess
-import time
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -20,7 +18,12 @@ from avd_client.launcher import (
 )
 from avd_client.security import SecurityError
 
-SAMPLE_RDP = "gatewayusagemethod:i:1\ngatewayhostname:s:afdfp-rdgateway.wvd.microsoft.com:443\nfull address:s:rdgateway.wvd.microsoft.com\nloadbalanceinfo:s:mth://localhost/pool1/host1\n"
+SAMPLE_RDP = (
+    "gatewayusagemethod:i:1\n"
+    "gatewayhostname:s:afdfp-rdgateway.wvd.microsoft.com:443\n"
+    "full address:s:rdgateway.wvd.microsoft.com\n"
+    "loadbalanceinfo:s:mth://localhost/pool1/host1\n"
+)
 DUMMY_TOKEN = "eyJhbGciOiJkaXIi..ivdata.ciphertext.authtag"
 
 
@@ -87,7 +90,9 @@ class TestCheckVersion:
 
 class TestBuildArgv:
     def test_basic(self):
-        cmd, rdp_path = build_argv("/usr/local/bin/xfreerdp", SAMPLE_RDP, DUMMY_TOKEN, "user@example.com")
+        cmd, rdp_path = build_argv(
+            "/usr/local/bin/xfreerdp", SAMPLE_RDP, DUMMY_TOKEN, "user@example.com"
+        )
         try:
             assert cmd[0] == "/usr/local/bin/xfreerdp"
             assert any("bearer:" in c for c in cmd)
@@ -96,8 +101,10 @@ class TestBuildArgv:
             os.unlink(rdp_path)
 
     def test_all_options(self):
-        cmd, rdp_path = build_argv("/usr/local/bin/xfreerdp", SAMPLE_RDP, DUMMY_TOKEN, "user@example.com",
-                                   clipboard=True, sound=True, microphone=True, multimon=True)
+        cmd, rdp_path = build_argv(
+            "/usr/local/bin/xfreerdp", SAMPLE_RDP, DUMMY_TOKEN, "user@example.com",
+            clipboard=True, sound=True, microphone=True, multimon=True
+        )
         try:
             assert "+clipboard" in cmd
             assert "/sound:sys:pulse" in cmd
@@ -107,7 +114,9 @@ class TestBuildArgv:
             os.unlink(rdp_path)
 
     def test_rdp_file_permissions(self):
-        _, rdp_path = build_argv("/usr/local/bin/xfreerdp", SAMPLE_RDP, DUMMY_TOKEN, "user@example.com")
+        _, rdp_path = build_argv(
+            "/usr/local/bin/xfreerdp", SAMPLE_RDP, DUMMY_TOKEN, "user@example.com"
+        )
         try:
             assert oct(os.stat(rdp_path).st_mode & 0o777) == "0o600"
         finally:
@@ -149,7 +158,10 @@ class TestBuildExecEnv:
 
 class TestOpenBrowserIsolated:
     @patch("avd_client.launcher.subprocess.Popen")
-    @patch("avd_client.launcher.shutil.which", side_effect=lambda n: "/usr/bin/firefox" if n == "firefox" else None)
+    @patch(
+        "avd_client.launcher.shutil.which",
+        side_effect=lambda n: "/usr/bin/firefox" if n == "firefox" else None,
+    )
     def test_opens_firefox(self, mock_which, mock_popen, monkeypatch):
         import avd_client.launcher
         monkeypatch.setattr(avd_client.launcher, "_browser_profile_dir", None)
@@ -249,7 +261,10 @@ class TestLaunch:
         mock_popen.return_value = proc
 
         # PTY read: simulate FreeRDP auth prompt
-        auth_output = b"Browse to: https://login.microsoftonline.com/common/oauth2/v2.0/authorize?test=1\nPaste redirect URL here:\n"
+        auth_output = (
+            b"Browse to: https://login.microsoftonline.com/common/oauth2/v2.0/authorize?test=1\n"
+            b"Paste redirect URL here:\n"
+        )
         mock_select.return_value = ([10], [], [])
         mock_read.side_effect = [auth_output, OSError("pty closed")]
 
@@ -258,11 +273,15 @@ class TestLaunch:
             args=[], returncode=0, stdout="avd-client-auth.desktop\n", stderr="")
 
         # Auth callback returns valid URL
-        mock_wait_callback.return_value = "ms-appx-web://microsoft.aad.brokerplugin/a85cf173?code=abc123"
+        mock_wait_callback.return_value = (
+            "ms-appx-web://microsoft.aad.brokerplugin/a85cf173?code=abc123"
+        )
 
         frontend = MagicMock()
-        exit_code = launch("/usr/local/bin/xfreerdp", ["/usr/local/bin/xfreerdp", "/tmp/test.rdp"],
-                           rdp_path="/tmp/test.rdp", frontend=frontend, session_info={"title": "Test"})
+        exit_code = launch(
+            "/usr/local/bin/xfreerdp", ["/usr/local/bin/xfreerdp", "/tmp/test.rdp"],
+            rdp_path="/tmp/test.rdp", frontend=frontend, session_info={"title": "Test"}
+        )
 
         assert exit_code == 0
         frontend.on_browser_opened.assert_called_once()
@@ -291,15 +310,22 @@ class TestLaunch:
         proc.wait.return_value = 0
         mock_popen.return_value = proc
 
-        auth_output = b"Browse to: https://login.microsoftonline.com/test\nPaste redirect URL here:\n"
+        auth_output = (
+            b"Browse to: https://login.microsoftonline.com/test\n"
+            b"Paste redirect URL here:\n"
+        )
         mock_select.return_value = ([10], [], [])
         mock_read.side_effect = [auth_output, OSError()]
 
-        mock_xdg_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
+        mock_xdg_run.return_value = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="", stderr=""
+        )
         mock_wait_callback.return_value = ""  # No automatic callback
 
         frontend = MagicMock()
-        frontend.prompt_url.return_value = "ms-appx-web://microsoft.aad.brokerplugin/test?code=manual"
+        frontend.prompt_url.return_value = (
+            "ms-appx-web://microsoft.aad.brokerplugin/test?code=manual"
+        )
 
         exit_code = launch("/usr/local/bin/xfreerdp", ["/usr/local/bin/xfreerdp"],
                            frontend=frontend, session_info={"title": "T"})
@@ -327,11 +353,16 @@ class TestLaunch:
         proc.terminate.return_value = None
         mock_popen.return_value = proc
 
-        auth_output = b"Browse to: https://login.microsoftonline.com/x\nPaste redirect URL here:\n"
+        auth_output = (
+            b"Browse to: https://login.microsoftonline.com/x\n"
+            b"Paste redirect URL here:\n"
+        )
         mock_select.return_value = ([10], [], [])
         mock_read.side_effect = [auth_output, OSError()]
 
-        mock_xdg_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
+        mock_xdg_run.return_value = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="", stderr=""
+        )
         mock_wait_callback.return_value = ""
 
         frontend = MagicMock()
@@ -365,11 +396,16 @@ class TestLaunch:
         proc.terminate.return_value = None
         mock_popen.return_value = proc
 
-        auth_output = b"Browse to: https://login.microsoftonline.com/x\nPaste redirect URL here:\n"
+        auth_output = (
+            b"Browse to: https://login.microsoftonline.com/x\n"
+            b"Paste redirect URL here:\n"
+        )
         mock_select.return_value = ([10], [], [])
         mock_read.side_effect = [auth_output, OSError()]
 
-        mock_xdg_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
+        mock_xdg_run.return_value = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="", stderr=""
+        )
         # Callback returns invalid URL (wrong scheme)
         mock_wait_callback.return_value = "https://evil.com/steal"
 
@@ -443,7 +479,8 @@ class TestLaunch:
     @patch("avd_client.launcher.os.close")
     @patch("avd_client.launcher.os.unlink")
     def test_keyboard_interrupt_sigkill_fallback(self, mock_unlink, mock_close, mock_read,
-                                                  mock_select, mock_openpty, mock_popen, xdg_runtime):
+                                                  mock_select, mock_openpty, mock_popen,
+                                                  xdg_runtime):
         mock_openpty.return_value = (10, 11)
         proc = MagicMock()
         proc.pid = 42
@@ -481,10 +518,15 @@ class TestLaunch:
         proc.terminate.return_value = None
         mock_popen.return_value = proc
 
-        auth_output = b"Browse to: https://login.microsoftonline.com/x\nPaste redirect URL here:\n"
+        auth_output = (
+            b"Browse to: https://login.microsoftonline.com/x\n"
+            b"Paste redirect URL here:\n"
+        )
         mock_select.return_value = ([10], [], [])
         mock_read.side_effect = [auth_output, OSError()]
-        mock_xdg_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
+        mock_xdg_run.return_value = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="", stderr=""
+        )
         mock_wait_callback.return_value = ""
 
         frontend = MagicMock()
@@ -517,10 +559,15 @@ class TestLaunch:
         proc.wait.return_value = 0
         mock_popen.return_value = proc
 
-        auth_output = b"Browse to: https://login.microsoftonline.com/x\nPaste redirect URL here:\n"
+        auth_output = (
+            b"Browse to: https://login.microsoftonline.com/x\n"
+            b"Paste redirect URL here:\n"
+        )
         mock_select.return_value = ([10], [], [])
         mock_read.side_effect = [auth_output, OSError()]
-        mock_xdg_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
+        mock_xdg_run.return_value = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="", stderr=""
+        )
         mock_wait_callback.return_value = "ms-appx-web://microsoft.aad.brokerplugin/test?code=x"
 
         exit_code = launch("/usr/local/bin/xfreerdp", ["/usr/local/bin/xfreerdp"],

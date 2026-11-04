@@ -2,7 +2,7 @@
 
 import os
 import subprocess
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -13,7 +13,6 @@ from avd_client.launcher import (
     check_version,
     resolve_binary,
 )
-
 
 SAMPLE_RDP = """\
 gatewayusagemethod:i:1

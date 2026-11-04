@@ -44,8 +44,6 @@ def xdg_config(tmp_path, monkeypatch):
 @pytest.fixture
 def mock_urlopen(monkeypatch):
     """Mock urllib.request.urlopen with controllable responses."""
-    from io import BytesIO
-    from unittest.mock import patch
 
     class FakeResponse:
         def __init__(self, data, status=200, headers=None):

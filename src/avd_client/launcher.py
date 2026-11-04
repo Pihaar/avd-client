@@ -19,9 +19,14 @@ from .config import (
     FREERDP_SEARCH_NAMES,
     FREERDP_VERSION_PATTERN,
 )
-from .feed import Resource, parse_rdp_properties
+from .feed import parse_rdp_properties
 from .i18n import _
-from .security import SecurityError, validate_feed_url, validate_hostname, validate_redirect_url, validate_upn
+from .security import (
+    SecurityError,
+    validate_hostname,
+    validate_redirect_url,
+    validate_upn,
+)
 
 log = logging.getLogger(__name__)
 
@@ -181,7 +186,9 @@ def _build_exec_env() -> dict:
     return env
 
 
-def launch(binary: str, argv: list, rdp_path: str = None, frontend=None, session_info: dict = None) -> int:
+def launch(
+    binary: str, argv: list, rdp_path: str = None, frontend=None, session_info: dict = None
+) -> int:
     """Launch FreeRDP with automated session-host auth via system browser.
 
     Intercepts FreeRDP's OAuth prompt, opens the system browser, and waits

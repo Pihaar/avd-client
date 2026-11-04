@@ -1,7 +1,6 @@
 """Tests for avd_client.favorites."""
 
 import json
-import os
 
 import pytest
 

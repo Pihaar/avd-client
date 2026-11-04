@@ -40,14 +40,18 @@ def parse_args(argv=None):
     )
     parser.add_argument("--version", action="version", version=f"avd-client {__version__}")
     parser.add_argument("--list", action="store_true", help=_("List available desktops and exit"))
-    parser.add_argument("--resource", metavar="TITLE", help=_("Connect to a specific resource by title"))
+    parser.add_argument(
+        "--resource", metavar="TITLE", help=_("Connect to a specific resource by title")
+    )
     parser.add_argument("--workspace", metavar="NAME", help=_("Select workspace by name substring"))
     parser.add_argument("--clipboard", action="store_true", help=_("Enable clipboard sharing"))
     parser.add_argument("--sound", action="store_true", help=_("Enable audio output"))
     parser.add_argument("--microphone", action="store_true", help=_("Enable microphone sharing"))
     parser.add_argument("--multimon", action="store_true", help=_("Enable multi-monitor"))
     parser.add_argument("--favorite", metavar="ID", help=_("Toggle a resource as favorite by ID"))
-    parser.add_argument("--all", action="store_true", help=_("Show all resources (including non-favorites)"))
+    parser.add_argument(
+        "--all", action="store_true", help=_("Show all resources (including non-favorites)")
+    )
     parser.add_argument("-v", "--verbose", action="count", default=0, help=_("Increase verbosity"))
     return parser.parse_args(argv)
 
@@ -136,7 +140,9 @@ def main(argv=None):
         workspace = _select_workspace(frontend, workspaces, args.workspace)
         resources = fetch_resources(token, workspace)
         if not resources:
-            frontend.notify_error(_("No resources in workspace '{name}'.").format(name=workspace.name))
+            frontend.notify_error(
+                _("No resources in workspace '{name}'.").format(name=workspace.name)
+            )
             sys.exit(3)
 
         resource = _select_resource(frontend, resources, args.resource)

@@ -15,7 +15,6 @@ from avd_client.feed import (
     fetch_resources,
     parse_rdp_properties,
 )
-from avd_client.security import SecurityError
 
 SAMPLE_DISCOVERY_XML = """\
 <?xml version="1.0" encoding="utf-8"?>
@@ -47,7 +46,8 @@ SAMPLE_WORKSPACE_XML = """\
         <HostingTerminalServers>
           <HostingTerminalServer>
             <ResourceFile FileExtension=".rdp"
-              URL="https://rdweb.wvd.microsoft.com/api/arm/feeddiscovery/tenants/t1/rdps/res1.rdp?geo=EU" />
+              URL="https://rdweb.wvd.microsoft.com/api/arm/feeddiscovery/tenants/t1/rdps/res1.rdp?geo=EU"
+            />
           </HostingTerminalServer>
         </HostingTerminalServers>
       </Resource>

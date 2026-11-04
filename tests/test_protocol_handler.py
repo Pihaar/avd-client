@@ -1,6 +1,5 @@
 """Tests for avd_client.protocol_handler."""
 
-import os
 
 import pytest
 

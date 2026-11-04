@@ -11,7 +11,6 @@ import json
 import logging
 import os
 import re
-import tempfile
 
 log = logging.getLogger(__name__)
 

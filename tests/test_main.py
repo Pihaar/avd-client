@@ -2,7 +2,7 @@
 
 import pytest
 
-from avd_client.__main__ import parse_args, _upn_hash
+from avd_client.__main__ import _upn_hash, parse_args
 
 
 class TestParseArgs:

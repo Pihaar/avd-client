@@ -1,16 +1,18 @@
 """Tests for avd_client.broker — D-Bus broker client with mocked dbus."""
 
 import json
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
 from avd_client.broker import BrokerClient, BrokerError
 
-
 SAMPLE_ACCOUNTS = json.dumps({
     "accounts": [
-        {"username": "test@example.com", "homeAccountId": "abc-123", "environment": "login.microsoftonline.com"}
+        {
+            "username": "test@example.com", "homeAccountId": "abc-123",
+            "environment": "login.microsoftonline.com"
+        }
     ],
     "telemetry": {}
 })

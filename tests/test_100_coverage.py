@@ -5,7 +5,7 @@ import logging
 import os
 import subprocess
 import sys
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -17,7 +17,9 @@ class TestMainResourceSelection:
         from avd_client.__main__ import _select_resource
         from avd_client.feed import Resource
         frontend = MagicMock()
-        resources = [Resource(id="r1", title="Desktop A", type="Desktop", rdp_url="u", show_by_default=True)]
+        resources = [Resource(
+            id="r1", title="Desktop A", type="Desktop", rdp_url="u", show_by_default=True
+        )]
         with pytest.raises(SystemExit) as exc:
             _select_resource(frontend, resources, "NoMatch")
         assert exc.value.code == 1
@@ -86,6 +88,7 @@ class TestBrokerConnectFailure:
 
     def test_connect_dbus_exception(self):
         import dbus.exceptions
+
         from avd_client.broker import BrokerClient, BrokerError
         client = BrokerClient()
         with patch("dbus.SessionBus", side_effect=dbus.exceptions.DBusException("no bus")):
@@ -101,7 +104,6 @@ class TestFavoritesWriteFailure:
         fav_dir = xdg_config / "avd-client"
         fav_dir.mkdir(mode=0o700)
         # Patch os.fdopen to raise during write
-        original_fdopen = os.fdopen
         def failing_fdopen(fd, *args, **kwargs):
             os.close(fd)
             raise IOError("disk full")
@@ -112,7 +114,7 @@ class TestFavoritesWriteFailure:
         assert not (fav_dir / "favorites.json.tmp").exists()
 
     def test_toggle_max_favorites_raises(self, xdg_config):
-        from avd_client.favorites import save_favorites, toggle_favorite, _MAX_FAVORITES
+        from avd_client.favorites import _MAX_FAVORITES, save_favorites, toggle_favorite
         # Fill to max
         uuids = {f"{i:08x}-0000-0000-0000-000000000000" for i in range(_MAX_FAVORITES)}
         save_favorites(uuids)
@@ -125,7 +127,7 @@ class TestFeedEdgeCases:
 
     @patch("avd_client.feed.urllib.request.urlopen")
     def test_unicode_decode_error(self, mock_url):
-        from avd_client.feed import discover_workspaces, FeedError
+        from avd_client.feed import FeedError, discover_workspaces
         mock_resp = MagicMock()
         mock_resp.read.return_value = b"\xff\xfe invalid utf8"
         mock_resp.__enter__ = lambda s: s
@@ -136,13 +138,16 @@ class TestFeedEdgeCases:
 
     @patch("avd_client.feed.urllib.request.urlopen")
     def test_workspace_feed_malformed_xml(self, mock_url):
-        from avd_client.feed import fetch_resources, FeedError, Workspace
+        from avd_client.feed import FeedError, Workspace, fetch_resources
         mock_resp = MagicMock()
         mock_resp.read.return_value = b"<not valid xml>>>"
         mock_resp.__enter__ = lambda s: s
         mock_resp.__exit__ = lambda s, *a: None
         mock_url.return_value = mock_resp
-        ws = Workspace(name="T", tenant_id="t", feed_url="https://rdweb.wvd.microsoft.com/f", geo="EU", resources=[])
+        ws = Workspace(
+            name="T", tenant_id="t", feed_url="https://rdweb.wvd.microsoft.com/f",
+            geo="EU", resources=[]
+        )
         with pytest.raises(FeedError, match="Invalid XML in workspace"):
             fetch_resources("eyJ.test.token", ws)
 
@@ -179,8 +184,8 @@ class TestLauncherMissingBranches:
         mock_xdg_run.return_value = MagicMock(stdout="other-handler.desktop\n", returncode=0)
         mock_wait_callback.return_value = "ms-appx-web://microsoft.aad.brokerplugin/t?code=x"
         # No frontend - uses print
-        exit_code = launch("/usr/local/bin/xfreerdp", ["/usr/local/bin/xfreerdp"],
-                           frontend=None, session_info={"title": "T"})
+        launch("/usr/local/bin/xfreerdp", ["/usr/local/bin/xfreerdp"],
+               frontend=None, session_info={"title": "T"})
         output = capsys.readouterr().out
         assert "login.microsoftonline.com" in output  # browser error printed URL
 
@@ -342,9 +347,11 @@ class TestFinalBranchPartials:
                     save_favorites({"d0e3096f-08bb-4959-a85a-08de6c261b58"})
 
     def test_launcher_forward_signal_called(self, xdg_runtime):
-        """Cover launcher.py:216-217 - send a real SIGTERM during launch() to exercise forward_signal."""
+        """Cover launcher.py:216-217 - send a real SIGTERM during launch() to exercise
+        forward_signal."""
         import signal as sig
         import threading
+
         from avd_client.launcher import launch
 
         with patch("avd_client.launcher.subprocess.Popen") as mock_popen, \
@@ -386,8 +393,8 @@ class TestFinalBranchPartials:
                 timer = threading.Thread(target=send_sigterm, daemon=True)
                 timer.start()
 
-                exit_code = launch("/usr/local/bin/xfreerdp", ["/usr/local/bin/xfreerdp"],
-                                   session_info={"title": "T"})
+                launch("/usr/local/bin/xfreerdp", ["/usr/local/bin/xfreerdp"],
+                       session_info={"title": "T"})
 
                 timer.join(timeout=3)
 
@@ -397,7 +404,6 @@ class TestFinalBranchPartials:
     def test_broker_call_default_scopes_branch(self):
         """Cover broker.py:63->65 - acquire_token with default scopes."""
         from avd_client.broker import BrokerClient
-        import json
         client = BrokerClient()
         client._bus = MagicMock()
         client._iface = MagicMock()
@@ -411,7 +417,10 @@ class TestFinalBranchPartials:
     def test_feed_discover_empty_tenants(self):
         """Cover feed.py:97->95 - discovery with ARMResources=true but 0 TenantFeedURL."""
         from avd_client.feed import discover_workspaces
-        xml = '<?xml version="1.0"?><TenantFeedURLs ARMResources="true" xmlns="http://schemas.microsoft.com/ts/2014/03/tswfdiscovery"></TenantFeedURLs>'
+        xml = (
+            '<?xml version="1.0"?><TenantFeedURLs ARMResources="true" '
+            'xmlns="http://schemas.microsoft.com/ts/2014/03/tswfdiscovery"></TenantFeedURLs>'
+        )
         with patch("avd_client.feed.urllib.request.urlopen") as mock_url:
             mock_resp = MagicMock()
             mock_resp.read.return_value = xml.encode()
@@ -423,15 +432,23 @@ class TestFinalBranchPartials:
 
     def test_feed_workspace_empty_resources(self):
         """Cover feed.py:128->132 - workspace with 0 Resource elements."""
-        from avd_client.feed import fetch_resources, Workspace
-        xml = '<?xml version="1.0"?><ResourceCollection xmlns="http://schemas.microsoft.com/ts/2007/05/tswf"><Publisher Name="T" ID="t"><Resources></Resources></Publisher></ResourceCollection>'
+        from avd_client.feed import Workspace, fetch_resources
+        xml = (
+            '<?xml version="1.0"?><ResourceCollection '
+            'xmlns="http://schemas.microsoft.com/ts/2007/05/tswf">'
+            '<Publisher Name="T" ID="t"><Resources></Resources></Publisher>'
+            '</ResourceCollection>'
+        )
         with patch("avd_client.feed.urllib.request.urlopen") as mock_url:
             mock_resp = MagicMock()
             mock_resp.read.return_value = xml.encode()
             mock_resp.__enter__ = lambda s: s
             mock_resp.__exit__ = lambda s, *a: None
             mock_url.return_value = mock_resp
-            ws = Workspace(name="T", tenant_id="t", feed_url="https://rdweb.wvd.microsoft.com/f", geo="EU", resources=[])
+            ws = Workspace(
+                name="T", tenant_id="t", feed_url="https://rdweb.wvd.microsoft.com/f",
+                geo="EU", resources=[]
+            )
             res = fetch_resources("eyJ.t.t", ws)
             assert res == []
 
@@ -482,11 +499,10 @@ class TestFinalBranchPartials:
 
     def test_open_browser_first_not_found(self, monkeypatch):
         """Cover launcher.py:48->58 - first browser not found, second found."""
-        from avd_client.launcher import _open_browser_isolated
         import avd_client.launcher
+        from avd_client.launcher import _open_browser_isolated
         monkeypatch.setattr(avd_client.launcher, "_browser_profile_dir", None)
 
-        call_record = []
         def fake_which(name):
             if name == "librewolf":
                 return None
@@ -507,7 +523,6 @@ class TestBranchPartials100:
     def test_broker_acquire_token_explicit_scopes(self):
         """broker.py:63->65 - scopes is not None (explicit list passed)."""
         from avd_client.broker import BrokerClient
-        import json
         client = BrokerClient()
         client._bus = MagicMock()
         client._iface = MagicMock()
@@ -525,7 +540,8 @@ class TestBranchPartials100:
         from avd_client.feed import discover_workspaces
         # All TenantFeedURL have invalid (non-MS) FeedURL -> skipped -> empty list
         xml = '''<?xml version="1.0"?>
-        <TenantFeedURLs ARMResources="true" xmlns="http://schemas.microsoft.com/ts/2014/03/tswfdiscovery">
+        <TenantFeedURLs ARMResources="true"
+            xmlns="http://schemas.microsoft.com/ts/2014/03/tswfdiscovery">
           <TenantFeedURL TenantId="t1" WorkspaceName="W" Geo="EU"
             FeedURL="https://evil.example.com/feed" />
         </TenantFeedURLs>'''
@@ -540,7 +556,7 @@ class TestBranchPartials100:
 
     def test_feed_workspace_no_resource_elements(self):
         """feed.py:128->132 - Resource for-loop body never executes."""
-        from avd_client.feed import fetch_resources, Workspace
+        from avd_client.feed import Workspace, fetch_resources
         xml = '''<?xml version="1.0"?>
         <ResourceCollection xmlns="http://schemas.microsoft.com/ts/2007/05/tswf">
           <Publisher Name="T" ID="t"><Resources></Resources></Publisher>
@@ -551,7 +567,10 @@ class TestBranchPartials100:
             mock_resp.__enter__ = lambda s: s
             mock_resp.__exit__ = lambda s, *a: None
             mock_url.return_value = mock_resp
-            ws = Workspace(name="T", tenant_id="t", feed_url="https://rdweb.wvd.microsoft.com/f", geo="EU", resources=[])
+            ws = Workspace(
+                name="T", tenant_id="t", feed_url="https://rdweb.wvd.microsoft.com/f",
+                geo="EU", resources=[]
+            )
             assert fetch_resources("eyJ.t.t", ws) == []
 
     def test_feed_parse_rdp_no_lines(self):
@@ -656,7 +675,8 @@ class TestBranchPartialsMultiElement:
         """feed.py:97->95 - for-loop iterates more than once (2 valid TenantFeedURLs)."""
         from avd_client.feed import discover_workspaces
         xml = '''<?xml version="1.0"?>
-        <TenantFeedURLs ARMResources="true" xmlns="http://schemas.microsoft.com/ts/2014/03/tswfdiscovery">
+        <TenantFeedURLs ARMResources="true"
+            xmlns="http://schemas.microsoft.com/ts/2014/03/tswfdiscovery">
           <TenantFeedURL TenantId="t1" WorkspaceName="WS1" Geo="US"
             FeedURL="https://rdweb.wvd.microsoft.com/api/arm/feed1" />
           <TenantFeedURL TenantId="t2" WorkspaceName="WS2" Geo="EU"
@@ -675,7 +695,7 @@ class TestBranchPartialsMultiElement:
 
     def test_feed_workspace_multiple_resources(self):
         """feed.py:128->132 - for-loop iterates more than once (2 Resources)."""
-        from avd_client.feed import fetch_resources, Workspace
+        from avd_client.feed import Workspace, fetch_resources
         xml = '''<?xml version="1.0"?>
         <ResourceCollection xmlns="http://schemas.microsoft.com/ts/2007/05/tswf">
           <Publisher Name="T" ID="t">
@@ -699,7 +719,10 @@ class TestBranchPartialsMultiElement:
             mock_resp.__enter__ = lambda s: s
             mock_resp.__exit__ = lambda s, *a: None
             mock_url.return_value = mock_resp
-            ws = Workspace(name="T", tenant_id="t", feed_url="https://rdweb.wvd.microsoft.com/f", geo="EU", resources=[])
+            ws = Workspace(
+                name="T", tenant_id="t", feed_url="https://rdweb.wvd.microsoft.com/f",
+                geo="EU", resources=[]
+            )
             res = fetch_resources("eyJ.t.t", ws)
             assert len(res) == 2
             assert res[0].title == "Desktop1"
@@ -721,8 +744,10 @@ class TestBranchPartialsMultiElement:
         """launcher.py:48->58 - for-loop iterates: first browser (librewolf) found on first try."""
         import avd_client.launcher
         monkeypatch.setattr(avd_client.launcher, "_browser_profile_dir", None)
-        with patch("avd_client.launcher.shutil.which", side_effect=lambda n: "/usr/bin/librewolf" if n == "librewolf" else None), \
-             patch("avd_client.launcher.subprocess.Popen") as mock_popen:
+        with patch(
+            "avd_client.launcher.shutil.which",
+            side_effect=lambda n: "/usr/bin/librewolf" if n == "librewolf" else None,
+        ), patch("avd_client.launcher.subprocess.Popen") as mock_popen:
             from avd_client.launcher import _open_browser_isolated
             _open_browser_isolated("https://test.com")
             args = mock_popen.call_args[0][0]
@@ -730,8 +755,8 @@ class TestBranchPartialsMultiElement:
 
     def test_wait_callback_multiple_poll_iterations(self, xdg_runtime):
         """launcher.py:377->383 - while-loop iterates multiple times before finding file."""
+
         from avd_client.launcher import _wait_for_auth_callback
-        import time as real_time
 
         callback_path = str(xdg_runtime / "avd-client-auth-callback")
         proc = MagicMock()
@@ -759,10 +784,13 @@ class TestBranchPartialsMultiElement:
         assert call_count[0] >= 2
 
     def test_security_filter_msg_without_token(self):
-        """security.py:92->94 - record.args truthy but contains no token (tuple branch, no redaction needed)."""
+        """security.py:92->94 - record.args truthy but contains no token
+        (tuple branch, no redaction needed)."""
         from avd_client.security import TokenRedactionFilter
         filt = TokenRedactionFilter()
-        record = logging.LogRecord("t", logging.INFO, "", 0, "normal %s %s", ("hello", "world"), None)
+        record = logging.LogRecord(
+            "t", logging.INFO, "", 0, "normal %s %s", ("hello", "world"), None
+        )
         filt.filter(record)
         assert record.args == ("hello", "world")
 
@@ -786,7 +814,8 @@ class TestBranchPartialsMultiElement:
         assert record.args == ("safe",)
 
     def test_ui_list_favorites_set_show_all_true_with_resources(self, capsys):
-        """ui.py:80->82 - favorites set AND show_all=True AND resources exist (both fav and non-fav shown)."""
+        """ui.py:80->82 - favorites set AND show_all=True AND resources exist
+        (both fav and non-fav shown)."""
         from avd_client.ui import CliFrontend
         frontend = CliFrontend()
         ws_data = [
@@ -802,10 +831,12 @@ class TestBranchPartialsFinal:
     """The absolute last branch partials - specifically test exception-then-continue paths."""
 
     def test_feed_discover_first_invalid_second_valid(self):
-        """feed.py:97->95 - SecurityError on first URL, continue to second (covers the except->for branch)."""
+        """feed.py:97->95 - SecurityError on first URL, continue to second
+        (covers the except->for branch)."""
         from avd_client.feed import discover_workspaces
         xml = '''<?xml version="1.0"?>
-        <TenantFeedURLs ARMResources="true" xmlns="http://schemas.microsoft.com/ts/2014/03/tswfdiscovery">
+        <TenantFeedURLs ARMResources="true"
+            xmlns="http://schemas.microsoft.com/ts/2014/03/tswfdiscovery">
           <TenantFeedURL TenantId="t1" WorkspaceName="Bad" Geo="US"
             FeedURL="https://evil.example.com/bad" />
           <TenantFeedURL TenantId="t2" WorkspaceName="Good" Geo="EU"
@@ -823,8 +854,9 @@ class TestBranchPartialsFinal:
             assert ws[0].name == "Good"
 
     def test_feed_workspace_resource_without_rdp_file(self):
-        """feed.py:128->132 - Resource element exists but has no ResourceFile child (rdp_url empty)."""
-        from avd_client.feed import fetch_resources, Workspace
+        """feed.py:128->132 - Resource element exists but has no ResourceFile child
+        (rdp_url empty)."""
+        from avd_client.feed import Workspace, fetch_resources
         xml = '''<?xml version="1.0"?>
         <ResourceCollection xmlns="http://schemas.microsoft.com/ts/2007/05/tswf">
           <Publisher Name="T" ID="t">
@@ -845,7 +877,10 @@ class TestBranchPartialsFinal:
             mock_resp.__enter__ = lambda s: s
             mock_resp.__exit__ = lambda s, *a: None
             mock_url.return_value = mock_resp
-            ws = Workspace(name="T", tenant_id="t", feed_url="https://rdweb.wvd.microsoft.com/f", geo="EU", resources=[])
+            ws = Workspace(
+                name="T", tenant_id="t", feed_url="https://rdweb.wvd.microsoft.com/f",
+                geo="EU", resources=[]
+            )
             res = fetch_resources("eyJ.t.t", ws)
             assert len(res) == 2
             assert res[0].rdp_url == ""
@@ -862,7 +897,7 @@ class TestBranchPartialsFinal:
         """security.py:92->94 - msg contains token, args is None (if record.args falsy path)."""
         from avd_client.security import TokenRedactionFilter
         filt = TokenRedactionFilter()
-        record = logging.LogRecord("t", logging.INFO, "", 0, 
+        record = logging.LogRecord("t", logging.INFO, "", 0,
                                     "no token here", None, None)
         filt.filter(record)
         # msg has no token, args is None -> both branches taken: msg no-op, args skipped
@@ -898,7 +933,10 @@ class TestBranchPartialsFinal:
             exc_type, exc_value, exc_tb = sys.exc_info()
             sys.excepthook(exc_type, exc_value, exc_tb)
             # String args should be redacted, non-string left alone
-            assert any("[REDACTED]" in str(a) for a in exc_value.args if isinstance(a, str) and "eyJ" in str(a)) or True
+            assert any(
+                "[REDACTED]" in str(a) for a in exc_value.args
+                if isinstance(a, str) and "eyJ" in str(a)
+            ) or True
 
     def test_ui_list_no_favorites_no_resources(self, capsys):
         """ui.py:80->82 - favorites=empty set, resources list is empty, show_all=False."""
@@ -915,10 +953,12 @@ class TestBranchPartialsAbsoluteFinal:
     """The TRUE remaining branches after understanding line number mapping."""
 
     def test_feed_discover_empty_feed_url_attr(self):
-        """feed.py:97->95 - TenantFeedURL with empty FeedURL attribute (if feed_url_attr is False)."""
+        """feed.py:97->95 - TenantFeedURL with empty FeedURL attribute
+        (if feed_url_attr is False)."""
         from avd_client.feed import discover_workspaces
         xml = '''<?xml version="1.0"?>
-        <TenantFeedURLs ARMResources="true" xmlns="http://schemas.microsoft.com/ts/2014/03/tswfdiscovery">
+        <TenantFeedURLs ARMResources="true"
+            xmlns="http://schemas.microsoft.com/ts/2014/03/tswfdiscovery">
           <TenantFeedURL TenantId="t1" WorkspaceName="Empty" Geo="US"
             FeedURL="" />
           <TenantFeedURL TenantId="t2" WorkspaceName="Valid" Geo="EU"
@@ -936,7 +976,8 @@ class TestBranchPartialsAbsoluteFinal:
             assert ws[0].name == "Valid"
 
     def test_feed_parse_rdp_two_part_line(self):
-        """feed.py:161->157 - line.split(':', 2) returns only 2 parts (line with single colon at end)."""
+        """feed.py:161->157 - line.split(':', 2) returns only 2 parts
+        (line with single colon at end)."""
         from avd_client.feed import parse_rdp_properties
         # "key:value" has a colon but split(:, 2) gives ["key", "value"] (len=2, not 3)
         content = "keyonly:value\nproper:s:data\n"
@@ -993,7 +1034,7 @@ class TestFinalEightBranches:
 
     def test_security_install_no_lastresort(self):
         """security.py:112->115 - logging.lastResort is None."""
-        from avd_client.security import TokenRedactionFilter, install_token_redaction
+        from avd_client.security import install_token_redaction
         with patch("avd_client.security.logging.lastResort", None):
             install_token_redaction()
 

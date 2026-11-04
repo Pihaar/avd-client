@@ -178,14 +178,19 @@ class TestValidateFeedUrl:
 class TestTokenRedactionFilter:
     def test_redacts_jwt_in_msg(self):
         filt = TokenRedactionFilter()
-        record = logging.LogRecord("test", logging.INFO, "", 0, "token: eyJhbGciOiJ.eyJzdWI.sig", (), None)
+        record = logging.LogRecord(
+            "test", logging.INFO, "", 0, "token: eyJhbGciOiJ.eyJzdWI.sig", (), None
+        )
         filt.filter(record)
         assert "eyJ" not in record.msg
         assert "[REDACTED]" in record.msg
 
     def test_redacts_in_args(self):
         filt = TokenRedactionFilter()
-        record = logging.LogRecord("test", logging.INFO, "", 0, "val: %s", ("eyJhbGci.eyJsub.signature",), None)
+        record = logging.LogRecord(
+            "test", logging.INFO, "", 0, "val: %s",
+            ("eyJhbGci.eyJsub.signature",), None
+        )
         filt.filter(record)
         assert "[REDACTED]" in record.args[0]
 

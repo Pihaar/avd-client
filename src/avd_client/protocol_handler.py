@@ -10,7 +10,6 @@ It writes the URL atomically to a well-known file that avd-client is watching.
 import os
 import re
 import sys
-import tempfile
 
 _ALLOWED_PREFIX = "ms-appx-web://microsoft.aad.brokerplugin/"
 _MAX_URL_LENGTH = 8192

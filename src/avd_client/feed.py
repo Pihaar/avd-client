@@ -6,7 +6,6 @@ import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
-from urllib.parse import urlparse
 
 from .config import (
     FEED_MAX_RESPONSE_BYTES,
@@ -15,7 +14,7 @@ from .config import (
     NS_DISCOVERY,
     NS_WEBFEED,
 )
-from .security import SecurityError, validate_feed_url, validate_hostname, validate_token_shape
+from .security import SecurityError, validate_feed_url, validate_token_shape
 
 log = logging.getLogger(__name__)
 
