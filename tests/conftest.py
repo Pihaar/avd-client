@@ -16,10 +16,15 @@ class FakeDBusException(Exception):
         return getattr(self, "_dbus_message", "mock dbus error")
 
 
+def _fake_interface(*args, **kwargs):
+    return MagicMock()
+
+
 fake_dbus_exceptions.DBusException = FakeDBusException
 fake_dbus.exceptions = fake_dbus_exceptions
 fake_dbus.SessionBus = MagicMock
-fake_dbus.Interface = MagicMock
+# Calling the MagicMock class directly would treat the first argument as its spec.
+fake_dbus.Interface = _fake_interface
 
 sys.modules.setdefault("dbus", fake_dbus)
 sys.modules.setdefault("dbus.exceptions", fake_dbus_exceptions)
