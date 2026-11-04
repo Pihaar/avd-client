@@ -12,6 +12,7 @@ from .config import (
     BROKER_INTERACTIVE_TIMEOUT,
     BROKER_INTERFACE,
     BROKER_OBJECT_PATH,
+    BROKER_PRT_TIMEOUT,
     BROKER_TIMEOUT,
     EDGE_BROWSER_CLIENT_ID,
     GRAPH_SCOPE,
@@ -129,7 +130,9 @@ class BrokerClient:
             "mamEnrollment": False,
             "ssoUrl": sso_url,
         }
-        result = self._call("acquirePrtSsoCookie", json.dumps(request))
+        result = self._call(
+            "acquirePrtSsoCookie", json.dumps(request), timeout=BROKER_PRT_TIMEOUT
+        )
         if "cookieItems" in result and not result.get("cookieName"):
             items = result["cookieItems"]
             if items:

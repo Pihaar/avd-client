@@ -284,7 +284,7 @@ def get_prt_cookie(sso_url: str):
         accounts = broker.get_accounts()
         return broker.acquire_prt_sso_cookie(accounts[0], sso_url)
     except Exception as e:
-        log.debug("PRT cookie unavailable: %s", type(e).__name__)
+        log.info("PRT cookie unavailable: %s", type(e).__name__)
         return None
 
 

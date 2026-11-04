@@ -9,6 +9,7 @@ BROKER_OBJECT_PATH = "/com/microsoft/identity/broker1"
 BROKER_INTERFACE = "com.microsoft.identity.Broker1"
 BROKER_TIMEOUT = 30  # seconds (first activation can take 25s)
 BROKER_INTERACTIVE_TIMEOUT = 300  # seconds (SSO dialog needs user interaction)
+BROKER_PRT_TIMEOUT = 10  # seconds (fall back to the browser if the cookie is slow)
 
 # OAuth / Token
 RDP_CLIENT_ID = "a85cf173-4192-42f8-81fa-777a763e6e2c"

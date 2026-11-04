@@ -83,7 +83,15 @@ def _headless_auth(auth_url: str) -> str:
         return ""
     try:
         with sync_playwright() as playwright:
-            browser = playwright.chromium.launch(headless=True)
+            browser = None
+            for browser_type in (playwright.chromium, playwright.firefox):
+                try:
+                    browser = browser_type.launch(headless=True, timeout=15000)
+                    break
+                except Exception as e:
+                    log.info("Headless browser launch failed: %s", type(e).__name__)
+            if browser is None:
+                return ""
             try:
                 context = browser.new_context()
                 context.add_cookies([{

@@ -18,7 +18,7 @@ Native Linux client for Azure Virtual Desktop (AVD). Connects to SAP AVD desktop
 - Python >= 3.9
 - `dbus-python` >= 1.2
 - Optional: `python3-keyring` for persistent refresh tokens on private devices
-- Optional: Playwright and a Chromium build for headless session-host authentication
+- Optional: Playwright with Chromium or Firefox for headless session-host authentication
 
 ## Installation
 
@@ -98,12 +98,12 @@ broker's own token cache; the keyring is only used on this PKCE path.
 
 On Intune-enrolled devices the client can complete the session-host login in a
 headless browser. It requests a PRT SSO cookie from the broker, injects it into
-a local headless Chromium, and catches the `ms-appx-web://` redirect. Install
-the optional dependency and browser:
+a local headless browser, and catches the `ms-appx-web://` redirect. Install
+the optional dependency and one browser:
 
 ```bash
 pip install playwright
-playwright install chromium
+playwright install chromium   # or: playwright install firefox
 ```
 
 Without Playwright or without a broker, the normal browser opens. Private
