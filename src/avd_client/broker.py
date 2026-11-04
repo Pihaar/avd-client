@@ -9,6 +9,7 @@ import dbus
 from .config import (
     AVD_SCOPE,
     BROKER_BUS_NAME,
+    BROKER_INTERACTIVE_TIMEOUT,
     BROKER_INTERFACE,
     BROKER_OBJECT_PATH,
     BROKER_TIMEOUT,
@@ -62,41 +63,54 @@ class BrokerClient:
     def acquire_token(self, account: dict, scopes: list = None) -> str:
         if scopes is None:
             scopes = [AVD_SCOPE]
-        request = json.dumps({
-            "authParameters": {
-                "account": account,
-                "additionalQueryParametersForAuthorization": {},
-                "authority": "https://login.microsoftonline.com/common",
-                "authorizationType": 1,
-                "clientId": RDP_CLIENT_ID,
-                "enrollmentId": "",
-                "isTestMode": False,
-                "popParams": None,
-                "redirectUri": RDP_REDIRECT_URI,
-                "requestOptions": [205, 202],
-                "requestedScopes": scopes,
-                "username": account.get("username", ""),
-                "uxContextHandle": -1,
-            }
-        })
-        result = self._call("acquireTokenSilently", request)
+        auth_params = {
+            "account": account,
+            "additionalQueryParametersForAuthorization": {},
+            "authority": "https://login.microsoftonline.com/common",
+            "authorizationType": 1,
+            "clientId": RDP_CLIENT_ID,
+            "enrollmentId": "",
+            "isTestMode": False,
+            "popParams": None,
+            "redirectUri": RDP_REDIRECT_URI,
+            "requestOptions": [205, 202],
+            "requestedScopes": scopes,
+            "username": account.get("username", ""),
+            "uxContextHandle": -1,
+        }
+        result = self._call("acquireTokenSilently", json.dumps({"authParameters": auth_params}))
         btr = result.get("brokerTokenResponse", {})
         if btr.get("error"):
             err = btr["error"]
             context = err.get("context", "unknown")[:200]
-            raise BrokerError(f"Token acquisition failed: {context}")
+            if "token_expired" in context or "invalid_grant" in context:
+                log.info("Silent token expired, trying interactive acquisition")
+                auth_params["authorizationType"] = 0
+                result = self._call(
+                    "acquireTokenInteractively",
+                    json.dumps({"authParameters": auth_params}),
+                    timeout=BROKER_INTERACTIVE_TIMEOUT,
+                )
+                btr = result.get("brokerTokenResponse", {})
+                if btr.get("error"):
+                    err = btr["error"]
+                    context = err.get("context", "unknown")[:200]
+                    raise BrokerError(f"Interactive token acquisition failed: {context}")
+            else:
+                raise BrokerError(f"Token acquisition failed: {context}")
         token = btr.get("accessToken", "")
         if not token:
             raise BrokerError("Broker returned empty access token")
         log.info("Token acquired (%d bytes)", len(token))
         return token
 
-    def _call(self, method: str, request_json: str) -> dict:
+    def _call(self, method: str, request_json: str, timeout: int = None) -> dict:
         if not self._iface:
             raise BrokerError("Not connected to broker")
         try:
             result = getattr(self._iface, method)(
-                "0.0", str(uuid.uuid4()), request_json, timeout=BROKER_TIMEOUT
+                "0.0", str(uuid.uuid4()), request_json,
+                timeout=timeout if timeout is not None else BROKER_TIMEOUT,
             )
             return json.loads(result)
         except dbus.exceptions.DBusException as e:
