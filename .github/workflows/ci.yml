@@ -17,7 +17,8 @@ jobs:
       - run: ruff check src/ tests/
 
   test:
-    runs-on: ubuntu-latest
+    # setup-python has no Python 3.9 builds for the Ubuntu 26.04 image.
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
