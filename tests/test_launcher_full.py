@@ -18,6 +18,11 @@ from avd_client.launcher import (
 )
 from avd_client.security import SecurityError
 
+
+@pytest.fixture(autouse=True)
+def _legacy_launch_path(monkeypatch):
+    monkeypatch.setattr("avd_client.launcher._has_sso_mib", lambda binary: False)
+
 SAMPLE_RDP = (
     "gatewayusagemethod:i:1\n"
     "gatewayhostname:s:afdfp-rdgateway.wvd.microsoft.com:443\n"

@@ -20,7 +20,6 @@ from .config import (
     FREERDP_MIN_VERSION,
     FREERDP_SEARCH_NAMES,
     FREERDP_VERSION_PATTERN,
-    FREERDP_WAYLAND_NAMES,
 )
 from .feed import parse_rdp_properties
 from .i18n import _
@@ -226,19 +225,13 @@ class LauncherError(Exception):
     pass
 
 
-def _is_wayland() -> bool:
-    return bool(os.environ.get("WAYLAND_DISPLAY")) or (
-        os.environ.get("XDG_SESSION_TYPE", "").lower() == "wayland"
-    )
-
-
 def resolve_binary() -> str:
     if FREERDP_BIN:
         binary = os.path.realpath(FREERDP_BIN)
         if not os.path.isfile(binary):
             raise LauncherError(f"FREERDP_BIN does not exist: {FREERDP_BIN}")
     else:
-        names = FREERDP_WAYLAND_NAMES if _is_wayland() else FREERDP_SEARCH_NAMES
+        names = FREERDP_SEARCH_NAMES
         binary = None
         for name in names:
             found = shutil.which(name)
@@ -347,6 +340,72 @@ def _build_exec_env() -> dict:
     return env
 
 
+_sso_mib_cache = {}
+
+
+def _has_sso_mib(binary: str) -> bool:
+    """Return True when the FreeRDP build acquires the token via SSO MIB."""
+    cached = _sso_mib_cache.get(binary)
+    if cached is not None:
+        return cached
+    try:
+        result = subprocess.run(
+            [binary, "/buildconfig"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            env=_build_exec_env(),
+        )
+        supported = "WITH_SSO_MIB=ON" in result.stdout + result.stderr
+    except Exception:
+        supported = False
+    _sso_mib_cache[binary] = supported
+    return supported
+
+
+def _launch_direct(argv: list, env: dict, rdp_path: str = None) -> int:
+    """Start FreeRDP with inherited stdio; it performs the token exchange itself."""
+    proc = subprocess.Popen(argv, env=env)
+    log.info("FreeRDP started (PID %d)", proc.pid)
+
+    original_sigterm = signal.getsignal(signal.SIGTERM)
+    original_sighup = signal.getsignal(signal.SIGHUP)
+
+    def forward_signal(signum, frame):
+        if proc.poll() is None:
+            proc.send_signal(signum)
+
+    signal.signal(signal.SIGTERM, forward_signal)
+    signal.signal(signal.SIGHUP, forward_signal)
+
+    start_time = time.monotonic()
+    exit_code = -1
+    try:
+        try:
+            exit_code = proc.wait()
+        except KeyboardInterrupt:
+            log.info("Ctrl-C received, terminating FreeRDP...")
+            proc.terminate()
+            try:
+                exit_code = proc.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                log.warning("FreeRDP did not terminate, sending SIGKILL")
+                proc.kill()
+                exit_code = proc.wait(timeout=5)
+    finally:
+        if rdp_path:
+            try:
+                os.unlink(rdp_path)
+            except FileNotFoundError:
+                pass
+        signal.signal(signal.SIGTERM, original_sigterm)
+        signal.signal(signal.SIGHUP, original_sighup)
+        duration = int(time.monotonic() - start_time)
+        log.info("Session ended (exit=%d, duration=%ds)", exit_code, duration)
+
+    return exit_code
+
+
 def launch(
     binary: str, argv: list, rdp_path: str = None, frontend=None, session_info: dict = None
 ) -> int:
@@ -358,6 +417,10 @@ def launch(
     env = _build_exec_env()
 
     log.info("Launching FreeRDP: %s", session_info.get("title", "?") if session_info else "?")
+
+    if _has_sso_mib(binary):
+        log.info("FreeRDP acquires the session-host token via SSO MIB")
+        return _launch_direct(argv, env, rdp_path)
 
     xdg_runtime = os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}")
     callback_path = os.path.join(xdg_runtime, "avd-client-auth-callback")

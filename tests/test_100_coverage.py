@@ -10,6 +10,11 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def _legacy_launch_path(monkeypatch):
+    monkeypatch.setattr("avd_client.launcher._has_sso_mib", lambda binary: False)
+
+
 class TestMainResourceSelection:
     """Cover __main__.py:80-81,86-88,103"""
 

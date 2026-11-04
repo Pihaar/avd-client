@@ -10,6 +10,11 @@ import pytest
 from avd_client.security import install_token_redaction
 
 
+@pytest.fixture(autouse=True)
+def _legacy_launch_path(monkeypatch):
+    monkeypatch.setattr("avd_client.launcher._has_sso_mib", lambda binary: False)
+
+
 class TestInstallTokenRedaction:
     def test_redacting_excepthook(self):
         install_token_redaction()
