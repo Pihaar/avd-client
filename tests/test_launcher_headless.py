@@ -3,10 +3,17 @@
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-from avd_client.launcher import _headless_auth
+import pytest
+
+from avd_client.launcher import _browser_candidates, _headless_auth
 
 URL = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize?x=1"
 REDIRECT = "ms-appx-web://microsoft.aad.brokerplugin/test?code=abc&state=xyz"
+
+
+@pytest.fixture(autouse=True)
+def _no_external_browsers(monkeypatch):
+    monkeypatch.setattr("avd_client.launcher.shutil.which", lambda name: None)
 
 
 def _working_browser_type(redirect):
@@ -32,15 +39,20 @@ def _working_browser_type(redirect):
 def _fake_playwright(redirect=REDIRECT, working="chromium"):
     chromium, chrome_page = _working_browser_type(redirect)
     firefox, firefox_page = _working_browser_type(redirect)
+    webkit, webkit_page = _working_browser_type(redirect)
     if working != "chromium":
         chromium.launch.side_effect = RuntimeError("no chromium")
     if working != "firefox":
         firefox.launch.side_effect = RuntimeError("no firefox")
+    if working != "webkit":
+        webkit.launch.side_effect = RuntimeError("no webkit")
     playwright = MagicMock()
     playwright.__enter__.return_value = playwright
     playwright.chromium = chromium
     playwright.firefox = firefox
-    return playwright, chrome_page if working == "chromium" else firefox_page
+    playwright.webkit = webkit
+    pages = {"chromium": chrome_page, "firefox": firefox_page, "webkit": webkit_page}
+    return playwright, pages[working]
 
 
 class TestHeadlessAuth:
@@ -73,10 +85,19 @@ class TestHeadlessAuth:
     @patch("avd_client.launcher.get_prt_cookie",
            return_value={"cookieName": "n", "cookieContent": "c"})
     @patch("avd_client.launcher.sync_playwright")
-    def test_both_browsers_fail(self, mock_playwright, mock_cookie):
+    def test_webkit_fallback(self, mock_playwright, mock_cookie):
+        fake, _ = _fake_playwright(working="webkit")
+        mock_playwright.return_value = fake
+        assert _headless_auth(URL) == REDIRECT
+
+    @patch("avd_client.launcher.get_prt_cookie",
+           return_value={"cookieName": "n", "cookieContent": "c"})
+    @patch("avd_client.launcher.sync_playwright")
+    def test_all_browsers_fail(self, mock_playwright, mock_cookie):
         fake, _ = _fake_playwright()
         fake.chromium.launch.side_effect = RuntimeError("no chromium")
         fake.firefox.launch.side_effect = RuntimeError("no firefox")
+        fake.webkit.launch.side_effect = RuntimeError("no webkit")
         mock_playwright.return_value = fake
         assert _headless_auth(URL) == ""
 
@@ -112,3 +133,15 @@ class TestHeadlessAuth:
         page.wait_for_timeout.side_effect = RuntimeError("closed")
         mock_playwright.return_value = fake
         assert _headless_auth(URL) == ""
+
+    def test_browser_candidates_include_channels_and_external(self, monkeypatch):
+        monkeypatch.setattr(
+            "avd_client.launcher.shutil.which",
+            lambda name: f"/usr/bin/{name}" if name in {"brave", "opera", "librewolf"} else None,
+        )
+        playwright = MagicMock()
+        labels = [label for label, _, _ in _browser_candidates(playwright)]
+        assert labels[:3] == ["chromium", "firefox", "webkit"]
+        assert "chrome" in labels and "msedge" in labels
+        assert "brave" in labels and "opera" in labels and "librewolf" in labels
+        assert "vivaldi" not in labels

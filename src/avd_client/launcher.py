@@ -74,6 +74,27 @@ def _open_browser_isolated(url: str):
     webbrowser.open(url)
 
 
+def _browser_candidates(playwright):
+    """Yield (label, browser_type, launch_options) for the available browsers."""
+    yield "chromium", playwright.chromium, {}
+    yield "firefox", playwright.firefox, {}
+    yield "webkit", playwright.webkit, {}
+    for channel in (
+        "chrome", "chrome-beta", "msedge", "msedge-beta", "msedge-dev", "msedge-canary"
+    ):
+        yield channel, playwright.chromium, {"channel": channel}
+    for name in (
+        "brave-browser", "brave", "opera", "vivaldi",
+        "google-chrome", "google-chrome-stable", "microsoft-edge", "microsoft-edge-stable",
+    ):
+        path = shutil.which(name)
+        if path:
+            yield name, playwright.chromium, {"executable_path": path}
+    path = shutil.which("librewolf")
+    if path:
+        yield "librewolf", playwright.firefox, {"executable_path": path}
+
+
 def _headless_auth(auth_url: str) -> str:
     """Try the session-host login in a headless browser with a PRT SSO cookie."""
     if sync_playwright is None:
@@ -84,12 +105,13 @@ def _headless_auth(auth_url: str) -> str:
     try:
         with sync_playwright() as playwright:
             browser = None
-            for browser_type in (playwright.chromium, playwright.firefox):
+            for label, browser_type, options in _browser_candidates(playwright):
                 try:
-                    browser = browser_type.launch(headless=True, timeout=15000)
+                    browser = browser_type.launch(headless=True, timeout=5000, **options)
+                    log.info("Headless browser: %s", label)
                     break
                 except Exception as e:
-                    log.info("Headless browser launch failed: %s", type(e).__name__)
+                    log.info("Headless browser launch failed (%s): %s", label, type(e).__name__)
             if browser is None:
                 return ""
             try:
