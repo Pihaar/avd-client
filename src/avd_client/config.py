@@ -38,9 +38,16 @@ NS_WEBFEED = "http://schemas.microsoft.com/ts/2007/05/tswf"
 
 # FreeRDP
 FREERDP_BIN = os.environ.get("FREERDP_BIN", "")
-FREERDP_SEARCH_NAMES = ("xfreerdp3", "xfreerdp")
+# The private avd-freerdp build carries the SSO MIB support on EL systems.
+FREERDP_SEARCH_NAMES = ("xfreerdp-avd", "xfreerdp3", "xfreerdp")
 FREERDP_MIN_VERSION = (3, 5, 0)
-FREERDP_ALLOWED_PATHS = ("/usr/bin/", "/usr/local/bin/", "/usr/lib/freerdp3/", "/usr/lib64/")
+FREERDP_ALLOWED_PATHS = (
+    "/usr/bin/",
+    "/usr/local/bin/",
+    "/usr/lib/avd-freerdp/bin/",
+    "/usr/lib/freerdp3/",
+    "/usr/lib64/",
+)
 FREERDP_VERSION_PATTERN = re.compile(r"(\d+)\.(\d+)\.(\d+)")
 
 # Hostname allowlist for session hosts and gateways

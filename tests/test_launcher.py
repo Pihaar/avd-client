@@ -56,6 +56,26 @@ class TestResolveBinary:
             with patch("os.path.isfile", return_value=True):
                 resolve_binary()
 
+    def test_prefers_avd_binary(self):
+        mapping = {
+            "xfreerdp-avd": "/usr/bin/xfreerdp-avd",
+            "xfreerdp": "/usr/bin/xfreerdp",
+        }
+        with patch("avd_client.launcher.FREERDP_BIN", ""):
+            with patch("avd_client.launcher.shutil.which", side_effect=mapping.get):
+                with patch("os.path.realpath", side_effect=lambda p: p):
+                    with patch("os.path.isfile", return_value=True):
+                        assert resolve_binary() == "/usr/bin/xfreerdp-avd"
+
+    def test_env_override_real_avd_binary(self, monkeypatch):
+        monkeypatch.setattr(
+            "avd_client.launcher.FREERDP_BIN",
+            "/usr/lib/avd-freerdp/bin/xfreerdp",
+        )
+        with patch("os.path.realpath", side_effect=lambda p: p):
+            with patch("os.path.isfile", return_value=True):
+                assert resolve_binary() == "/usr/lib/avd-freerdp/bin/xfreerdp"
+
 
 class TestCheckVersion:
     @patch("avd_client.launcher.subprocess.run")
