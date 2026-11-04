@@ -56,11 +56,46 @@ class TestResolveBinary:
             with patch("os.path.isfile", return_value=True):
                 resolve_binary()
 
-    def test_prefers_avd_binary(self):
+    def test_prefers_avd_binary(self, monkeypatch):
+        monkeypatch.setenv("XDG_SESSION_TYPE", "x11")
+        monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
         mapping = {
             "xfreerdp-avd": "/usr/bin/xfreerdp-avd",
             "xfreerdp": "/usr/bin/xfreerdp",
         }
+        with patch("avd_client.launcher.FREERDP_BIN", ""):
+            with patch("avd_client.launcher.shutil.which", side_effect=mapping.get):
+                with patch("os.path.realpath", side_effect=lambda p: p):
+                    with patch("os.path.isfile", return_value=True):
+                        assert resolve_binary() == "/usr/bin/xfreerdp-avd"
+
+    def test_prefers_wayland_binary(self, monkeypatch):
+        monkeypatch.setenv("XDG_SESSION_TYPE", "wayland")
+        monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
+        mapping = {
+            "wlfreerdp-avd": "/usr/bin/wlfreerdp-avd",
+            "xfreerdp-avd": "/usr/bin/xfreerdp-avd",
+        }
+        with patch("avd_client.launcher.FREERDP_BIN", ""):
+            with patch("avd_client.launcher.shutil.which", side_effect=mapping.get):
+                with patch("os.path.realpath", side_effect=lambda p: p):
+                    with patch("os.path.isfile", return_value=True):
+                        assert resolve_binary() == "/usr/bin/wlfreerdp-avd"
+
+    def test_wayland_display_selects_wl(self, monkeypatch):
+        monkeypatch.delenv("XDG_SESSION_TYPE", raising=False)
+        monkeypatch.setenv("WAYLAND_DISPLAY", "wayland-0")
+        mapping = {"wlfreerdp": "/usr/bin/wlfreerdp"}
+        with patch("avd_client.launcher.FREERDP_BIN", ""):
+            with patch("avd_client.launcher.shutil.which", side_effect=mapping.get):
+                with patch("os.path.realpath", side_effect=lambda p: p):
+                    with patch("os.path.isfile", return_value=True):
+                        assert resolve_binary() == "/usr/bin/wlfreerdp"
+
+    def test_wayland_falls_back_to_x11(self, monkeypatch):
+        monkeypatch.setenv("XDG_SESSION_TYPE", "wayland")
+        monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
+        mapping = {"xfreerdp-avd": "/usr/bin/xfreerdp-avd"}
         with patch("avd_client.launcher.FREERDP_BIN", ""):
             with patch("avd_client.launcher.shutil.which", side_effect=mapping.get):
                 with patch("os.path.realpath", side_effect=lambda p: p):

@@ -20,6 +20,7 @@ from .config import (
     FREERDP_MIN_VERSION,
     FREERDP_SEARCH_NAMES,
     FREERDP_VERSION_PATTERN,
+    FREERDP_WAYLAND_NAMES,
 )
 from .feed import parse_rdp_properties
 from .i18n import _
@@ -225,22 +226,29 @@ class LauncherError(Exception):
     pass
 
 
+def _is_wayland() -> bool:
+    return bool(os.environ.get("WAYLAND_DISPLAY")) or (
+        os.environ.get("XDG_SESSION_TYPE", "").lower() == "wayland"
+    )
+
+
 def resolve_binary() -> str:
     if FREERDP_BIN:
         binary = os.path.realpath(FREERDP_BIN)
         if not os.path.isfile(binary):
             raise LauncherError(f"FREERDP_BIN does not exist: {FREERDP_BIN}")
     else:
+        names = FREERDP_WAYLAND_NAMES if _is_wayland() else FREERDP_SEARCH_NAMES
         binary = None
-        for name in FREERDP_SEARCH_NAMES:
+        for name in names:
             found = shutil.which(name)
             if found:
                 binary = os.path.realpath(found)
                 break
         if not binary:
             raise LauncherError(
-                "xfreerdp3 not found in PATH. Install FreeRDP >= 3.5.0 "
-                "(build from source or use a package repo)"
+                f"FreeRDP client not found in PATH ({', '.join(names)}). "
+                "Install FreeRDP >= 3.5.0 (build from source or use a package repo)"
             )
 
     if not any(binary.startswith(p) for p in FREERDP_ALLOWED_PATHS):
