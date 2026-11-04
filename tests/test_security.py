@@ -7,6 +7,7 @@ import pytest
 from avd_client.security import (
     SecurityError,
     TokenRedactionFilter,
+    validate_authorize_url,
     validate_feed_url,
     validate_hostname,
     validate_redirect_url,
@@ -173,6 +174,33 @@ class TestValidateFeedUrl:
     def test_no_hostname_rejected(self):
         with pytest.raises(SecurityError, match="no hostname"):
             validate_feed_url("https:///path")
+
+
+class TestValidateAuthorizeUrl:
+    VALID = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize?x=1"
+
+    def test_valid(self):
+        assert validate_authorize_url(self.VALID) == self.VALID
+
+    def test_empty(self):
+        with pytest.raises(SecurityError, match="Empty authorize"):
+            validate_authorize_url("")
+
+    def test_control_characters(self):
+        with pytest.raises(SecurityError, match="control"):
+            validate_authorize_url(self.VALID + "\x00")
+
+    def test_too_long(self):
+        with pytest.raises(SecurityError, match="too long"):
+            validate_authorize_url("https://login.microsoftonline.com/" + "a" * 8192)
+
+    def test_wrong_scheme(self):
+        with pytest.raises(SecurityError, match="not a Microsoft"):
+            validate_authorize_url("http://login.microsoftonline.com/x")
+
+    def test_wrong_host(self):
+        with pytest.raises(SecurityError, match="not a Microsoft"):
+            validate_authorize_url("https://evil.example/x")
 
 
 class TestTokenRedactionFilter:

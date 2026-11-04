@@ -13,6 +13,7 @@
 | App → Browser (auth) | Phishing: malicious auth URL | URL regex validates `https://login.microsoftonline.com/` prefix | URL with `@` userinfo could redirect (low risk) |
 | App → Browser (PKCE) | CSRF: forged callback | Random `state` compared with `secrets.compare_digest`; redirect URL limited to the Microsoft nativeclient path | N/A |
 | App → Browser (PKCE) | Info Disclosure: authorization code | Code exchanged immediately; code verifier, code, and tokens never logged; redirect URL not echoed | Browser history may retain the code briefly |
+| App → Headless browser | Info Disclosure: PRT cookie and auth code | Cookie kept in memory, scoped to login.microsoftonline.com; redirect validated; neither value logged | Headless browser process memory |
 | Protocol Handler → App | Injection: malicious redirect URL | URL must start with `ms-appx-web://microsoft.aad.brokerplugin/`; no control characters; length capped at 8192 | Same-UID process can write callback file |
 | Protocol Handler | Squatting: competing handler | Check `xdg-mime query default` before use; warn if not ours | Any same-UID process can re-register |
 | xfreerdp → Gateway | MITM: cert:tofu | Gateway uses TLS + Bearer auth; inner RDP-TLS is defence-in-depth | First-connect TOFU = trust without prior verification |
@@ -37,7 +38,7 @@
 | SEC-236 Info Disclosure | Token redaction filter on all loggers + sys.excepthook; error messages truncated to 200 chars |
 | SEC-239 Fail Securely | All error paths exit with defined codes (2=auth, 3=feed, 4=launcher, 5=security) |
 | SEC-278 URL Handling | Feed URLs validated against domain allowlist; no redirect following |
-| SEC-309 Secret Management | Access token not persisted; PKCE refresh token in the OS keyring when available; callback file mode 0600; atomic writes |
+| SEC-309 Secret Management | Access token not persisted; PKCE refresh token in the OS keyring when available; PRT cookie in memory only; callback file mode 0600; atomic writes |
 | SEC-375 SSRF Protection | No redirect handler in urllib opener; hostname allowlist on all fetched URLs |
 
 ## Broker-free PKCE Authentication
@@ -54,6 +55,16 @@ available; it is never written to a plain file. Without a keyring, the refresh
 token stays in memory only. The ID token is parsed for the UPN without signature
 verification because it is read directly from the TLS token endpoint and is used
 only as the FreeRDP username hint.
+
+## Headless Session-Host Authentication
+
+When Playwright and a Chromium build are available, the launcher requests a PRT
+SSO cookie from the broker and injects it into a local headless browser. The
+cookie is held in memory, scoped to `login.microsoftonline.com`, and never
+logged. The captured `ms-appx-web://` redirect is validated before it is
+written to FreeRDP. Without a broker the headless path is skipped and the normal
+browser opens; private devices have no PRT, so the session-host login stays
+interactive.
 
 ## Incident Response
 

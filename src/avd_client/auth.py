@@ -25,6 +25,7 @@ from .config import (
 from .i18n import _
 from .security import (
     SecurityError,
+    validate_authorize_url,
     validate_pkce_redirect,
     validate_token_shape,
     validate_upn,
@@ -272,6 +273,19 @@ def _pkce_auth(frontend) -> AuthResult:
         source="pkce",
         refresh_token=refresh_token,
     )
+
+
+def get_prt_cookie(sso_url: str):
+    """Return a PRT SSO cookie for the session-host URL, or None without a broker."""
+    try:
+        validate_authorize_url(sso_url)
+        broker = BrokerClient()
+        broker.connect()
+        accounts = broker.get_accounts()
+        return broker.acquire_prt_sso_cookie(accounts[0], sso_url)
+    except Exception as e:
+        log.debug("PRT cookie unavailable: %s", type(e).__name__)
+        return None
 
 
 def get_token(frontend=None) -> AuthResult:

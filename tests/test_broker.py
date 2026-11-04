@@ -124,6 +124,65 @@ class TestBrokerClient:
         with pytest.raises(BrokerError, match="empty access token"):
             client.acquire_token({"username": "test@example.com"})
 
+    def test_acquire_prt_sso_cookie_v2(self):
+        client = self._make_client()
+        client._iface.acquirePrtSsoCookie.return_value = json.dumps({
+            "cookieName": "x-ms-RefreshTokenCredential",
+            "cookieContent": "cookie-value",
+        })
+        cookie = client.acquire_prt_sso_cookie(
+            {"username": "user@example.com"},
+            "https://login.microsoftonline.com/common/oauth2/v2.0/authorize?x=1",
+        )
+        assert cookie == {
+            "cookieName": "x-ms-RefreshTokenCredential",
+            "cookieContent": "cookie-value",
+        }
+        request = json.loads(client._iface.acquirePrtSsoCookie.call_args[0][2])
+        assert request["authParameters"]["authorizationType"] == 8
+        assert request["authParameters"]["clientId"] == "ecd6b820-32c2-49b6-98a6-444530e5a77a"
+        assert request["ssoUrl"].startswith("https://login.microsoftonline.com/")
+
+    def test_acquire_prt_sso_cookie_v3(self):
+        client = self._make_client()
+        client._iface.acquirePrtSsoCookie.return_value = json.dumps({
+            "cookieItems": [{
+                "cookieName": "x-ms-RefreshTokenCredential",
+                "cookieContent": "v3-value",
+            }]
+        })
+        cookie = client.acquire_prt_sso_cookie(
+            {"username": "user@example.com"},
+            "https://login.microsoftonline.com/x",
+        )
+        assert cookie["cookieContent"] == "v3-value"
+
+    def test_acquire_prt_sso_cookie_error(self):
+        client = self._make_client()
+        client._iface.acquirePrtSsoCookie.return_value = json.dumps({
+            "error": {"context": "boom"}
+        })
+        with pytest.raises(BrokerError, match="PRT cookie acquisition failed"):
+            client.acquire_prt_sso_cookie(
+                {"username": "user@example.com"}, "https://login.microsoftonline.com/x"
+            )
+
+    def test_acquire_prt_sso_cookie_empty(self):
+        client = self._make_client()
+        client._iface.acquirePrtSsoCookie.return_value = json.dumps({})
+        with pytest.raises(BrokerError, match="empty PRT cookie"):
+            client.acquire_prt_sso_cookie(
+                {"username": "user@example.com"}, "https://login.microsoftonline.com/x"
+            )
+
+    def test_acquire_prt_sso_cookie_empty_items(self):
+        client = self._make_client()
+        client._iface.acquirePrtSsoCookie.return_value = json.dumps({"cookieItems": []})
+        with pytest.raises(BrokerError, match="empty PRT cookie"):
+            client.acquire_prt_sso_cookie(
+                {"username": "user@example.com"}, "https://login.microsoftonline.com/x"
+            )
+
     def test_dbus_exception_raises_broker_error(self):
         import dbus.exceptions
         client = self._make_client()

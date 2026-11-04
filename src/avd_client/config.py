@@ -15,6 +15,10 @@ RDP_CLIENT_ID = "a85cf173-4192-42f8-81fa-777a763e6e2c"
 RDP_REDIRECT_URI = "https://login.microsoftonline.com/common/oauth2/nativeclient"
 AVD_SCOPE = "https://www.wvd.microsoft.com/.default"
 
+# PRT SSO cookie requests use the Edge browser client identity
+EDGE_BROWSER_CLIENT_ID = "ecd6b820-32c2-49b6-98a6-444530e5a77a"
+GRAPH_SCOPE = "https://graph.microsoft.com/.default"
+
 # Broker-free browser login (OAuth2 authorization code with PKCE)
 PKCE_AUTHORIZE_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
 PKCE_TOKEN_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/token"

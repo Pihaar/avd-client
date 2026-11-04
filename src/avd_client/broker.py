@@ -13,6 +13,8 @@ from .config import (
     BROKER_INTERFACE,
     BROKER_OBJECT_PATH,
     BROKER_TIMEOUT,
+    EDGE_BROWSER_CLIENT_ID,
+    GRAPH_SCOPE,
     RDP_CLIENT_ID,
     RDP_REDIRECT_URI,
 )
@@ -103,6 +105,44 @@ class BrokerClient:
             raise BrokerError("Broker returned empty access token")
         log.info("Token acquired (%d bytes)", len(token))
         return token
+
+    def acquire_prt_sso_cookie(self, account: dict, sso_url: str) -> dict:
+        auth_params = {
+            "account": account,
+            "additionalQueryParametersForAuthorization": {},
+            "authority": "https://login.microsoftonline.com/common",
+            "authorizationType": 8,
+            "clientId": EDGE_BROWSER_CLIENT_ID,
+            "enrollmentId": "",
+            "isTestMode": False,
+            "popParams": None,
+            "redirectUri": RDP_REDIRECT_URI,
+            "requestOptions": [205, 202],
+            "requestedScopes": [GRAPH_SCOPE],
+            "username": account.get("username", ""),
+            "uxContextHandle": -1,
+            "ssoUrl": sso_url,
+        }
+        request = {
+            "account": account,
+            "authParameters": auth_params,
+            "mamEnrollment": False,
+            "ssoUrl": sso_url,
+        }
+        result = self._call("acquirePrtSsoCookie", json.dumps(request))
+        if "cookieItems" in result and not result.get("cookieName"):
+            items = result["cookieItems"]
+            if items:
+                result = items[0]
+        error = result.get("error")
+        if error:
+            context = error.get("context", "unknown") if isinstance(error, dict) else error
+            raise BrokerError(f"PRT cookie acquisition failed: {str(context)[:200]}")
+        cookie_name = result.get("cookieName", "")
+        cookie_content = result.get("cookieContent", "")
+        if not cookie_name or not cookie_content:
+            raise BrokerError("Broker returned an empty PRT cookie")
+        return {"cookieName": cookie_name, "cookieContent": cookie_content}
 
     def _call(self, method: str, request_json: str, timeout: int = None) -> dict:
         if not self._iface:

@@ -21,6 +21,7 @@ from avd_client.auth import (
     _prompt,
     _refresh_access_token,
     _store_refresh,
+    get_prt_cookie,
     get_token,
 )
 from avd_client.broker import BrokerError
@@ -221,6 +222,33 @@ class TestPkceFallback:
     def test_notify_without_frontend(self, capsys):
         _notify(None, "message")
         assert "message" in capsys.readouterr().out
+
+
+class TestPrtCookie:
+    URL = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize?x=1"
+
+    @patch("avd_client.auth.BrokerClient")
+    def test_success(self, mock_cls):
+        broker = MagicMock()
+        broker.get_accounts.return_value = [{"username": "user@example.com"}]
+        broker.acquire_prt_sso_cookie.return_value = {
+            "cookieName": "cookie",
+            "cookieContent": "content",
+        }
+        mock_cls.return_value = broker
+
+        assert get_prt_cookie(self.URL) == {
+            "cookieName": "cookie",
+            "cookieContent": "content",
+        }
+
+    @patch("avd_client.auth.BrokerClient")
+    def test_broker_error_returns_none(self, mock_cls):
+        mock_cls.return_value.connect.side_effect = BrokerError("no broker")
+        assert get_prt_cookie(self.URL) is None
+
+    def test_invalid_url_returns_none(self):
+        assert get_prt_cookie("https://evil.example/x") is None
 
 
 class TestIdToken:

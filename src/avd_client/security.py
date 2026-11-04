@@ -94,6 +94,21 @@ def validate_pkce_redirect(url: str) -> tuple:
     return code, state
 
 
+def validate_authorize_url(url: str) -> str:
+    """Validate the FreeRDP authorize URL before passing it to the broker or browser."""
+    if not url:
+        raise SecurityError("Empty authorize URL")
+    if _CONTROL_CHAR_PATTERN.search(url):
+        raise SecurityError("Authorize URL contains control characters")
+    if len(url) > 8192:
+        raise SecurityError("Authorize URL too long")
+    parsed = urlparse(url)
+    host = (parsed.hostname or "").lower()
+    if parsed.scheme != "https" or host != "login.microsoftonline.com":
+        raise SecurityError("Authorize URL is not a Microsoft login URL")
+    return url
+
+
 def validate_feed_url(url: str) -> str:
     """Validate that a feed-returned URL points to an allowed Microsoft host."""
     parsed = urlparse(url)

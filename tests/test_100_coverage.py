@@ -189,6 +189,82 @@ class TestLauncherMissingBranches:
         output = capsys.readouterr().out
         assert "login.microsoftonline.com" in output  # browser error printed URL
 
+    @patch("avd_client.launcher._headless_auth", return_value="ms-appx-web://microsoft.aad.brokerplugin/t?code=x")
+    @patch("avd_client.launcher._wait_for_auth_callback")
+    @patch("avd_client.launcher._open_browser_isolated")
+    @patch("avd_client.launcher.subprocess.run")
+    @patch("avd_client.launcher.subprocess.Popen")
+    @patch("avd_client.launcher.pty.openpty")
+    @patch("avd_client.launcher.select.select")
+    @patch("avd_client.launcher.os.read")
+    @patch("avd_client.launcher.os.write")
+    @patch("avd_client.launcher.os.close")
+    @patch("avd_client.launcher.os.unlink")
+    def test_headless_auth_success_skips_browser(self, mock_unlink, mock_close, mock_write,
+                                                 mock_read, mock_select, mock_openpty,
+                                                 mock_popen, mock_xdg_run, mock_browser,
+                                                 mock_wait_callback, mock_headless, xdg_runtime):
+        from avd_client.launcher import launch
+        mock_openpty.return_value = (10, 11)
+        proc = MagicMock()
+        proc.pid = 99
+        proc.poll.side_effect = [None, None, None, 0]
+        proc.returncode = 0
+        proc.wait.return_value = 0
+        proc.terminate.return_value = None
+        mock_popen.return_value = proc
+        auth_output = b"Browse to: https://login.microsoftonline.com/x\nPaste redirect URL here:\n"
+        mock_select.return_value = ([10], [], [])
+        mock_read.side_effect = [auth_output, OSError()]
+        mock_xdg_run.return_value = MagicMock(stdout="", returncode=0)
+        exit_code = launch("/usr/local/bin/xfreerdp", ["/usr/local/bin/xfreerdp"],
+                           frontend=None, session_info={"title": "T"})
+        assert exit_code == 0
+        mock_browser.assert_not_called()
+        mock_wait_callback.assert_not_called()
+        mock_headless.assert_called_once_with("https://login.microsoftonline.com/x")
+        mock_write.assert_called_with(
+            10, b"ms-appx-web://microsoft.aad.brokerplugin/t?code=x\r\n"
+        )
+
+    @patch("avd_client.launcher._headless_auth", return_value="https://evil.example/")
+    @patch("avd_client.launcher._wait_for_auth_callback",
+           return_value="ms-appx-web://microsoft.aad.brokerplugin/t?code=y")
+    @patch("avd_client.launcher._open_browser_isolated")
+    @patch("avd_client.launcher.subprocess.run")
+    @patch("avd_client.launcher.subprocess.Popen")
+    @patch("avd_client.launcher.pty.openpty")
+    @patch("avd_client.launcher.select.select")
+    @patch("avd_client.launcher.os.read")
+    @patch("avd_client.launcher.os.write")
+    @patch("avd_client.launcher.os.close")
+    @patch("avd_client.launcher.os.unlink")
+    def test_headless_invalid_redirect_falls_back(self, mock_unlink, mock_close, mock_write,
+                                                  mock_read, mock_select, mock_openpty,
+                                                  mock_popen, mock_xdg_run, mock_browser,
+                                                  mock_wait_callback, mock_headless, xdg_runtime):
+        from avd_client.launcher import launch
+        mock_openpty.return_value = (10, 11)
+        proc = MagicMock()
+        proc.pid = 99
+        proc.poll.side_effect = [None, None, None, 0]
+        proc.returncode = 0
+        proc.wait.return_value = 0
+        proc.terminate.return_value = None
+        mock_popen.return_value = proc
+        auth_output = b"Browse to: https://login.microsoftonline.com/x\nPaste redirect URL here:\n"
+        mock_select.return_value = ([10], [], [])
+        mock_read.side_effect = [auth_output, OSError()]
+        mock_xdg_run.return_value = MagicMock(stdout="", returncode=0)
+        exit_code = launch("/usr/local/bin/xfreerdp", ["/usr/local/bin/xfreerdp"],
+                           frontend=None, session_info={"title": "T"})
+        assert exit_code == 0
+        mock_browser.assert_called_once()
+        mock_wait_callback.assert_called_once()
+        mock_write.assert_called_with(
+            10, b"ms-appx-web://microsoft.aad.brokerplugin/t?code=y\r\n"
+        )
+
     @patch("avd_client.launcher.subprocess.Popen")
     @patch("avd_client.launcher.pty.openpty")
     @patch("avd_client.launcher.select.select")

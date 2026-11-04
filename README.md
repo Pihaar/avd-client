@@ -18,6 +18,7 @@ Native Linux client for Azure Virtual Desktop (AVD). Connects to SAP AVD desktop
 - Python >= 3.9
 - `dbus-python` >= 1.2
 - Optional: `python3-keyring` for persistent refresh tokens on private devices
+- Optional: Playwright and a Chromium build for headless session-host authentication
 
 ## Installation
 
@@ -71,8 +72,8 @@ LANGUAGE=de avd-client --list
 │  4. Launch xfreerdp with gateway bearer token             │
 │     /gateway:type:arm,bearer:<token>                      │
 │                                                           │
-│  5. Browser opens for session-host AAD authentication     │
-│     (linux-entra-sso provides automatic SSO)              │
+│  5. Browser or headless browser with a PRT cookie         │
+│     (linux-entra-sso provides SSO in a normal browser)    │
 │                                                           │
 │  6. Protocol handler catches redirect → FreeRDP connects  │
 └──────────────────────────────────────────────────────────┘
@@ -80,6 +81,8 @@ LANGUAGE=de avd-client --list
 
 Authentication uses the broker when it is available. On private devices without
 Intune, the client falls back to an OAuth2 authorization-code flow with PKCE.
+On broker devices with Playwright, the session-host login can run in a headless
+browser with a PRT cookie.
 
 ## Private devices without Intune
 
@@ -90,6 +93,22 @@ state and exchanges the code immediately. The refresh token is stored in the
 system keyring when `python3-keyring` is available; otherwise it stays in memory
 only and each start asks for a browser login. Broker-enrolled devices use the
 broker's own token cache; the keyring is only used on this PKCE path.
+
+## Headless session-host authentication
+
+On Intune-enrolled devices the client can complete the session-host login in a
+headless browser. It requests a PRT SSO cookie from the broker, injects it into
+a local headless Chromium, and catches the `ms-appx-web://` redirect. Install
+the optional dependency and browser:
+
+```bash
+pip install playwright
+playwright install chromium
+```
+
+Without Playwright or without a broker, the normal browser opens. Private
+devices without a broker have no PRT, so the session-host login stays
+interactive.
 
 ## Configuration
 

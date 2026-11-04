@@ -12,6 +12,7 @@ import tempfile
 import time
 import webbrowser
 
+from .auth import get_prt_cookie
 from .config import (
     FREERDP_ALLOWED_PATHS,
     FREERDP_BIN,
@@ -27,6 +28,11 @@ from .security import (
     validate_redirect_url,
     validate_upn,
 )
+
+try:
+    from playwright.sync_api import sync_playwright
+except ImportError:  # pragma: no cover
+    sync_playwright = None  # pragma: no cover
 
 log = logging.getLogger(__name__)
 
@@ -66,6 +72,53 @@ def _open_browser_isolated(url: str):
 
     # Fallback to webbrowser module
     webbrowser.open(url)
+
+
+def _headless_auth(auth_url: str) -> str:
+    """Try the session-host login in a headless browser with a PRT SSO cookie."""
+    if sync_playwright is None:
+        return ""
+    cookie = get_prt_cookie(auth_url)
+    if not cookie:
+        return ""
+    try:
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            try:
+                context = browser.new_context()
+                context.add_cookies([{
+                    "name": cookie["cookieName"],
+                    "value": cookie["cookieContent"],
+                    "domain": "login.microsoftonline.com",
+                    "path": "/",
+                    "secure": True,
+                    "http_only": True,
+                }])
+                page = context.new_page()
+                captured = []
+
+                def on_request(request):
+                    if request.url.startswith("ms-appx-web://"):
+                        captured.append(request.url)
+
+                page.on("request", on_request)
+                try:
+                    page.goto(auth_url, wait_until="commit", timeout=15000)
+                except Exception:
+                    pass
+                for _ in range(120):
+                    if captured:
+                        break
+                    try:
+                        page.wait_for_timeout(250)
+                    except Exception:
+                        break
+                return captured[0] if captured else ""
+            finally:
+                browser.close()
+    except Exception as e:
+        log.warning("Headless authentication failed: %s", type(e).__name__)
+        return ""
 
 
 class LauncherError(Exception):
@@ -270,30 +323,41 @@ def launch(
                 except (OSError, subprocess.TimeoutExpired):
                     pass
 
-                if frontend:
-                    frontend.on_browser_opened()
-                else:
-                    print(_("Browser opened for authentication..."))
-
-                try:
-                    _open_browser_isolated(auth_url)
-                    log.info("Browser opened for session-host auth")
-                except Exception as e:
-                    log.warning("Could not open browser: %s", e)
-                    if frontend:
-                        frontend.notify(_("Could not open browser. Open manually:"))
-                        frontend.notify(f"  {auth_url}")
-                    else:
-                        print(f"Could not open browser: {auth_url}")
-
-                redirect_url = _wait_for_auth_callback(callback_path, proc, timeout=120)
-
+                redirect_url = ""
+                log.info("Trying headless session-host authentication")
+                redirect_url = _headless_auth(auth_url)
                 if redirect_url:
                     try:
                         validate_redirect_url(redirect_url)
                     except SecurityError as e:
-                        log.warning("Invalid redirect URL rejected: %s", e)
-                        redirect_url = None
+                        log.warning("Headless redirect rejected: %s", e)
+                        redirect_url = ""
+
+                if not redirect_url:
+                    if frontend:
+                        frontend.on_browser_opened()
+                    else:
+                        print(_("Browser opened for authentication..."))
+
+                    try:
+                        _open_browser_isolated(auth_url)
+                        log.info("Browser opened for session-host auth")
+                    except Exception as e:
+                        log.warning("Could not open browser: %s", e)
+                        if frontend:
+                            frontend.notify(_("Could not open browser. Open manually:"))
+                            frontend.notify(f"  {auth_url}")
+                        else:
+                            print(f"Could not open browser: {auth_url}")
+
+                    redirect_url = _wait_for_auth_callback(callback_path, proc, timeout=120)
+
+                    if redirect_url:
+                        try:
+                            validate_redirect_url(redirect_url)
+                        except SecurityError as e:
+                            log.warning("Invalid redirect URL rejected: %s", e)
+                            redirect_url = None
 
                 if redirect_url:
                     os.write(master_fd, (redirect_url + "\r\n").encode())
